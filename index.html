@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1416" />
+    <meta name="description" content="A side-view A320 flight sim: take off, cruise and land between real airports." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="BBFS 2D" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>BBFS 2D</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="game.js" defer></script>
+  </head>
+  <body>
+    <main class="game" id="game">
+      <canvas id="world" aria-label="Side view of the aircraft and terrain"></canvas>
+
+      <header class="hud-top">
+        <div class="brand" aria-label="BBFS 2D">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="brand-copy"><strong>BBFS</strong><small>2D</small></span>
+        </div>
+        <div class="route" aria-label="Route progress">
+          <span class="route-code" id="route-from">EGLL</span>
+          <div class="route-track"><i id="route-progress"></i><b id="route-plane">✈</b></div>
+          <span class="route-code" id="route-to">EGGD</span>
+          <span class="route-dist" id="route-dist">150 KM</span>
+        </div>
+        <div class="hud-buttons">
+          <button class="hud-button ap-toggle" id="fcu-button" aria-label="Autopilot panel" aria-expanded="false" title="Autopilot panel (P)">AP</button>
+          <button class="hud-button" id="rate-button" aria-label="Simulation rate" title="Simulation rate (T)">1×</button>
+          <button class="hud-button" id="sound-button" aria-label="Toggle sound" title="Sound (M)" aria-pressed="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z"/><path class="sound-wave" d="M16 9a5 5 0 0 1 0 6M18.5 6.5a9 9 0 0 1 0 11"/></svg>
+          </button>
+          <button class="hud-button" id="fullscreen-button" aria-label="Fullscreen" title="Fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+          <button class="hud-button" id="pause-button" aria-label="Pause" title="Pause (Space)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h3v14H8zM15 5h3v14h-3z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="hud-panels">
+        <div class="pfd" aria-label="Primary flight data">
+          <div class="readout">
+            <span class="readout-label">IAS <small id="speed-trend"></small></span>
+            <span class="readout-value"><b id="ias">000</b><small>KT</small></span>
+            <span class="readout-sub" id="speed-sub">GS 000</span>
+          </div>
+          <div class="readout">
+            <span class="readout-label">ALT <small id="alt-target"></small></span>
+            <span class="readout-value"><b id="alt">00000</b><small>FT</small></span>
+            <span class="readout-sub" id="alt-sub">RA 0</span>
+          </div>
+          <div class="readout readout-small">
+            <span class="readout-label">V/S</span>
+            <span class="readout-value"><b id="vs">+0000</b></span>
+            <span class="readout-sub" id="pitch-sub">PITCH +0.0°</span>
+          </div>
+          <div class="readout readout-small">
+            <span class="readout-label">N1</span>
+            <span class="readout-value"><b id="n1">00</b><small>%</small></span>
+            <span class="readout-sub" id="thr-sub">IDLE</span>
+          </div>
+        </div>
+        <canvas class="vd" id="vd" aria-label="Vertical profile display"></canvas>
+      </section>
+
+      <div class="objective" id="objective" role="status">SET FLAPS 1 · THEN TO/GA THRUST</div>
+      <div class="warnings" id="warnings" aria-live="assertive"></div>
+      <div class="fma" id="fma" hidden></div>
+
+      <div class="gs-indicator" id="gs-indicator" hidden>
+        <span class="gs-title">G/S</span>
+        <div class="gs-scale"><i></i><i></i><b></b><i></i><i></i><em id="gs-diamond"></em></div>
+        <div class="papi" id="papi"><i></i><i></i><i></i><i></i></div>
+        <span class="gs-dist" id="gs-dist">-- KM</span>
+      </div>
+
+      <section class="fcu" id="fcu" hidden aria-label="Autopilot control panel">
+        <div class="fcu-modes">
+          <button class="fcu-toggle" id="ap-button" aria-pressed="false" title="Autopilot (A)">AP</button>
+          <button class="fcu-toggle" id="athr-button" aria-pressed="false" title="Autothrust (Q)">A/THR</button>
+          <button class="fcu-toggle" id="appr-button" aria-pressed="false" title="Approach: capture the glideslope (L)">APPR</button>
+          <span class="fcu-fma" id="fcu-fma">AP OFF</span>
+        </div>
+        <div class="fcu-knobs">
+          <div class="knob" data-knob="spd"><small>SPD</small><button data-step="-1" aria-label="Speed down">−</button><b id="spd-value">250</b><button data-step="1" aria-label="Speed up">+</button></div>
+          <div class="knob" data-knob="alt"><small>ALT</small><button data-step="-1" aria-label="Altitude down">−</button><b id="alt-value">10000</b><button data-step="1" aria-label="Altitude up">+</button></div>
+          <div class="knob" data-knob="vs"><small>V/S</small><button data-step="-1" aria-label="Climb or descent rate down">−</button><b id="vs-value">1500</b><button data-step="1" aria-label="Climb or descent rate up">+</button></div>
+        </div>
+      </section>
+
+      <div class="pitch-pad" id="pitch-pad" aria-label="Pitch control: drag up for nose up">
+        <span class="pad-label">PITCH</span>
+        <div class="stick-track"><span>▲</span><i id="stick-knob"></i><span>▼</span></div>
+        <span class="pad-hint" id="pitch-hint">DRAG ↑ NOSE UP</span>
+      </div>
+
+      <div class="systems" aria-label="Aircraft systems">
+        <button class="sys-button" id="flaps-up" aria-label="Retract flaps"><small>FLAPS</small><b>▲</b></button>
+        <button class="sys-button" id="flaps-down" aria-label="Extend flaps"><small>FLAPS</small><b>▼</b></button>
+        <div class="sys-state"><small>FLAPS</small><b id="flaps-state">0</b></div>
+        <button class="sys-button" id="gear-button" aria-pressed="true"><small>GEAR</small><b id="gear-state">DOWN</b></button>
+        <button class="sys-button" id="spoiler-button" aria-pressed="false"><small>SPD BRK</small><b id="spoiler-state">RET</b></button>
+        <button class="sys-button" id="brake-button" aria-pressed="false"><small>BRAKES</small><b id="brake-state">AUTO</b></button>
+      </div>
+
+      <div class="throttle" id="throttle" aria-label="Throttle lever">
+        <span class="pad-label">THR</span>
+        <div class="lever-track" id="lever-track">
+          <span class="detent" style="--at: 100%">TOGA</span>
+          <span class="detent" style="--at: 82%">CL</span>
+          <span class="detent" style="--at: 0%">IDLE</span>
+          <i id="lever-fill"></i>
+          <b id="lever-handle"></b>
+        </div>
+        <span class="pad-hint" id="thr-label">IDLE</span>
+      </div>
+
+      <div class="replay-bar" id="replay-bar" hidden>
+        <div class="replay-head"><b>REPLAY</b><span id="replay-time">T−0.0 S</span></div>
+        <div class="replay-track"><i id="replay-progress"></i><em id="replay-marker"></em></div>
+        <div class="replay-buttons">
+          <button class="replay-button" id="replay-restart" aria-label="Replay from the start">⟲</button>
+          <button class="replay-button" id="replay-play" aria-label="Play or pause">❚❚</button>
+          <button class="replay-button" id="replay-speed" aria-label="Replay speed">1×</button>
+          <button class="replay-button" id="replay-cam" aria-label="Camera">FOLLOW</button>
+          <button class="replay-button is-primary" id="replay-exit">REPORT</button>
+        </div>
+      </div>
+
+      <div class="overlay start-overlay" id="start-overlay">
+        <div class="card start-card">
+          <div class="start-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>BBFS 2D</strong><small>FLIGHT SIM</small></div>
+          <img class="start-plane" id="start-plane" src="assets/aircraft/a320/a320-gear-down.png" alt="Side profile of the selected aircraft" />
+          <div class="conditions" role="group" aria-label="Route and conditions">
+            <button class="condition" id="aircraft-picker"><small>AIRCRAFT</small><b id="aircraft-label">A320</b></button>
+            <button class="condition" id="route-picker"><small>ROUTE</small><b id="route-label">EGLL → EGGD</b></button>
+            <button class="condition" id="weather-picker"><small>WEATHER</small><b id="weather-label">CLOUDY</b></button>
+            <button class="condition" id="time-picker"><small>TIME</small><b id="time-label">DAY</b></button>
+          </div>
+          <div class="modes" role="group" aria-label="Choose what to fly">
+            <button class="mode-card is-primary" data-mode="flight">
+              <small>FULL FLIGHT</small><b id="flight-title">EGLL → EGGD</b><span id="plan-distance">150 KM · FL100 · ~20 MIN</span><em data-best="flight"></em>
+            </button>
+            <button class="mode-card" data-mode="takeoff">
+              <small>PRACTICE</small><b>TAKEOFF</b><span id="takeoff-plan">EGLL 27R · CLIMB TO 1,500 FT</span><em data-best="takeoff"></em>
+            </button>
+            <button class="mode-card" data-mode="landing">
+              <small>PRACTICE</small><b>LANDING</b><span id="landing-plan">EGGD 27 · 9 KM FINAL, CONFIGURED</span><em data-best="landing"></em>
+            </button>
+          </div>
+          <button class="challenge-entry" id="challenge-button"><b>CHALLENGES</b><span>Engine failures, go-arounds, storms, fog, mountains</span><em id="challenge-stars">★ 0 / 30</em></button>
+          <button class="install-button" id="install-button" hidden>INSTALL APP</button>
+          <details class="help">
+            <summary>HOW TO FLY</summary>
+            <ol>
+              <li><b>Take off:</b> set takeoff flaps (A320: 1, 747: 10, 727: 15), throttle to TOGA, and pull up gently at rotate speed (about 145–158 kt) to about 10° (8° in the 727). The A320 and 747 tails strike at about 12°, the long 727 at about 10.7°. Gear up once climbing.</li>
+              <li><b>Climb &amp; cruise:</b> retract flaps and set CL thrust. Tap <b>AP</b> to open the autopilot: set SPD and ALT, then engage AP and A/THR. Speed up time with <b>1×</b> above 2,500 ft.</li>
+              <li><b>Descend</b> at the T/D marker on the profile display: lower the ALT target (or idle thrust and nose down by hand) to about 250 kt.</li>
+              <li><b>Land:</b> slow down, landing flaps (A320: FULL, 747: 30, 727: 40), gear down. Arm <b>APPR</b> and the autopilot follows the glideslope; it disconnects at 100 ft so you flare by hand. Throttle idle, then the brakes stop you.</li>
+            </ol>
+            <p class="keys">Keys: W/S pitch · ↑/↓ throttle · G gear · F/R flaps · Z speedbrake · B brakes · A autopilot · Q autothrust · L approach · P autopilot panel · T sim rate · Space pause</p>
+            <p class="keys">Fly-by-wire: release the stick and the aircraft holds its flight path. Below 50 ft it holds attitude, so you flare. Moving the stick or throttle disconnects the autopilot or autothrust.</p>
+            <p class="keys">Before departure the load sheet sets passengers and fuel: heavier means a longer takeoff roll, higher speeds and more fuel burn. Watch the maximum landing weight and keep the reserve.</p>
+            <p class="keys">Install: on Android tap INSTALL APP (or the browser menu → Install). On iPhone use Share → Add to Home Screen.</p>
+          </details>
+        </div>
+      </div>
+
+      <div class="overlay" id="challenge-overlay" hidden>
+        <div class="card challenge-panel">
+          <div class="panel-head"><strong class="menu-title">CHALLENGES</strong><button class="secondary-button small-button" id="challenge-back">BACK</button></div>
+          <div class="challenge-list" id="challenge-list"></div>
+        </div>
+      </div>
+
+      <div class="overlay" id="load-overlay" hidden>
+        <div class="card load-card">
+          <small class="result-kicker">LOAD SHEET</small>
+          <strong class="load-title" id="load-title">A320</strong>
+          <label class="slider-row"><span>PASSENGERS</span><b id="pax-value">0</b><input type="range" id="pax-input" min="0" max="180" step="1" /></label>
+          <label class="slider-row"><span>FUEL</span><b id="fuel-value">0 T</b><input type="range" id="fuel-input" min="0" max="18700" step="100" /></label>
+          <dl class="result-stats" id="load-stats"></dl>
+          <p class="load-note" id="load-note"></p>
+          <div class="result-actions">
+            <button class="primary-button" id="depart-button">DEPART</button>
+            <button class="secondary-button" id="auto-fuel-button">AUTO FUEL</button>
+            <button class="secondary-button" id="load-back-button">BACK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="pause-overlay" hidden>
+        <div class="card menu-card">
+          <strong class="menu-title">PAUSED</strong>
+          <button class="primary-button" id="resume-button">RESUME</button>
+          <button class="secondary-button" id="restart-button">RESTART FLIGHT</button>
+          <button class="secondary-button" id="menu-button">MAIN MENU</button>
+          <div class="menu-row">
+            <button class="secondary-button" id="invert-button" aria-pressed="false">INVERT PITCH: OFF</button>
+            <button class="secondary-button" id="sensitivity-button">STICK: NORMAL</button>
+          </div>
+          <p class="keys">W/S pitch · ↑/↓ throttle · G gear · F/R flaps · Z speedbrake · B brakes · A/Q/L autopilot, autothrust, approach · T sim rate</p>
+        </div>
+      </div>
+
+      <div class="overlay" id="result-overlay" hidden>
+        <div class="card result-card">
+          <small class="result-kicker" id="result-kicker">LANDING REPORT</small>
+          <strong class="result-title" id="result-title">SMOOTH</strong>
+          <p class="result-copy" id="result-copy"></p>
+          <dl class="result-stats" id="result-stats"></dl>
+          <div class="result-actions">
+            <button class="primary-button" id="again-button">TRY AGAIN</button>
+            <button class="secondary-button" id="replay-button">▶ REPLAY</button>
+            <button class="secondary-button" id="result-menu-button">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="rotate-hint" id="rotate-hint">Rotate your phone for the best view</div>
+    </main>
+  </body>
+</html>
