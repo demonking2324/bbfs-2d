@@ -1,6 +1,6 @@
 # BBFS 2D
 
-A mobile-first, side-view flight sim. Fly an Airbus A320, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night.
+A mobile-first, side-view flight sim. Fly an Airbus A320, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night.
 
 **Play it:** https://demonking2324.github.io/bbfs-2d/ (works on phones; add it to the home screen to install).
 
@@ -22,17 +22,17 @@ While a flight is running the game asks the phone to keep the screen awake.
 
 Pick the aircraft on the start screen. Each has its own handling, speeds, flaps and limits; the flight guidance, autopilot, landing and takeoff reports all follow the selected type.
 
-| | A320 | 727-200 | 747-400 |
-| --- | --- | --- | --- |
-| Reference weight | 62 t | 76 t | 280 t |
-| Engines | 2 | 3 (tail-mounted) | 4 |
-| Takeoff flaps / rotate (reference weight) | 1 / 145 kt | 15 / 145 kt | 10 / 158 kt |
-| Landing flaps / approach | FULL / 138 kt | 40 / 140 kt | 30 / 150 kt |
-| Flap detents | 0, 1, 2, 3, FULL | 0, 2, 5, 15, 25, 30, 40 | 0, 1, 5, 10, 20, 25, 30 |
-| Tail strike (from the art) | 12.2° | 10.7° (rotate to about 8°) | 12.1° |
-| Takeoff roll, typical load (tested) | ~1,100 m | ~1,150 m (1,700 m full at Munich) | ~1,500 m |
+| | A320 | 737-300 | 727-200 | 747-400 |
+| --- | --- | --- | --- | --- |
+| Reference weight | 62 t | 52 t | 76 t | 280 t |
+| Engines | 2 | 2 | 3 (tail-mounted) | 4 |
+| Takeoff flaps / rotate (reference weight) | 1 / 145 kt | 5 / 140 kt | 15 / 145 kt | 10 / 158 kt |
+| Landing flaps / approach | FULL / 138 kt | 30 / 135 kt | 40 / 140 kt | 30 / 150 kt |
+| Flap detents | 0, 1, 2, 3, FULL | 0, 1, 5, 10, 15, 25, 30 | 0, 2, 5, 15, 25, 30, 40 | 0, 1, 5, 10, 20, 25, 30 |
+| Tail strike (from the art) | 12.2° | 11.3° (rotate to about 9°) | 10.7° (rotate to about 8°) | 12.1° |
+| Takeoff roll, typical load (tested) | ~1,100 m | ~950 m (1,700 m full) | ~1,150 m (1,700 m full at Munich) | ~1,500 m |
 
-Rotate and approach speeds scale with the actual weight from the load sheet. Larger aircraft are drawn larger on screen, and parked aircraft at the gates are a mix of all three types. The 727 is thrust-limited and thirsty (roughly twice the A320's fuel burn), with a nose-low approach on flaps 40; with one engine out it climbs only a few hundred feet per minute.
+Rotate and approach speeds scale with the actual weight from the load sheet. Larger aircraft are drawn larger on screen, and parked aircraft at the gates are a mix of all four types. The 737-300 is the smallest and lightest: a short-haul twin that gets off the ground quickly at typical weights. The 727 is thrust-limited and thirsty (roughly twice the A320's fuel burn), with a nose-low approach on flaps 40; with one engine out it climbs only a few hundred feet per minute.
 
 ## Load sheet: fuel and weight
 
@@ -42,11 +42,11 @@ Before each flight you choose passengers and fuel. The sheet shows takeoff and e
 - Fuel burns off in flight, per engine, more at high thrust and low altitude. FUEL is shown under N1. **LOW FUEL** appears below about half the reserve; if the tanks run dry, all engines flame out and you glide.
 - Landing above the maximum landing weight costs points.
 
-| | A320 | 727-200 | 747-400 |
-| --- | --- | --- | --- |
-| Empty / max takeoff / max landing | 42.6 / 78 / 66 t | 46.7 / 95 / 72.6 t | 178.8 / 396.9 / 285.8 t |
-| Max passengers / fuel | 180 / 18.7 t | 189 / 24.6 t | 416 / 170 t |
-| Reserve | 1.2 t | 2 t | 6 t |
+| | A320 | 737-300 | 727-200 | 747-400 |
+| --- | --- | --- | --- | --- |
+| Empty / max takeoff / max landing | 42.6 / 78 / 66 t | 32.7 / 62.8 / 51.7 t | 46.7 / 95 / 72.6 t | 178.8 / 396.9 / 285.8 t |
+| Max passengers / fuel | 180 / 18.7 t | 149 / 16.2 t | 189 / 24.6 t | 416 / 170 t |
+| Reserve | 1.2 t | 1.1 t | 2 t | 6 t |
 
 ## Challenges
 

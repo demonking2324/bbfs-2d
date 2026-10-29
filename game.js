@@ -200,6 +200,62 @@
     gearTransit: 9,
     flapTransit: 3,
   };
+  // Boeing 737-300: short-haul twin with CFM56-3 engines slung close under the wing; handling numbers are referenced to 52 t.
+  AIRCRAFT.b733 = {
+    id: "b733",
+    name: "737-300",
+    sprites: { gearUp: "assets/aircraft/b733/b733-gear-up.png", gearDown: "assets/aircraft/b733/b733-gear-down.png" },
+    art: {
+      width: 511, height: 177, mainWheel: [245.5, 174.5], noseWheel: 58.5, tailBumper: [386, 146.5], nozzles: [[214, 151]],
+      beacon: [184, 95], bellyBeacon: [285, 156], tailStrobe: [484, 112], wingtip: [328, 116], landingLight: [58, 156],
+      windows: [{ y: 117, from: 89, to: 346, step: 7.34, r: 1.9 }], fin: [455, 50],
+    },
+    length: 33.4,
+    span: 28.9,
+    wingArea: 105.4,
+    mass: 52000,
+    maxThrust: 178000,
+    idleThrust: 0.04,
+    cl0: 0.2,
+    clAlpha: 5.0,
+    cd0: 0.024,
+    inducedK: 0.052,
+    gearCd: 0.018,
+    spoilerCd: 0.07,
+    spoilerLift: 0.55,
+    rollMu: 0.016,
+    brakeMu: 0.3,
+    flaps: [
+      { label: "0", cl: 0, cd: 0, clMax: 1.45, vfe: 340, speed: 250 },
+      { label: "1", cl: 0.15, cd: 0.004, clMax: 1.8, vfe: 230, speed: 210 },
+      { label: "5", cl: 0.3, cd: 0.01, clMax: 2.05, vfe: 225, speed: 190 },
+      { label: "10", cl: 0.45, cd: 0.016, clMax: 2.15, vfe: 210, speed: 175 },
+      { label: "15", cl: 0.6, cd: 0.026, clMax: 2.3, vfe: 195, speed: 160 },
+      { label: "25", cl: 0.82, cd: 0.042, clMax: 2.5, vfe: 190, speed: 150 },
+      { label: "30", cl: 1.0, cd: 0.058, clMax: 2.65, vfe: 185, speed: 140 },
+    ],
+    flapSchedule: [[30000, 1], [26000, 2], [21000, 3], [16000, 4], [12500, 5], [10500, 6]],
+    takeoffFlap: 2,
+    vmo: 340,
+    vle: 270,
+    vr: 140,
+    vapp: 135,
+    rotatePitch: 9,
+    climbPitch: 12,
+    engines: 2,
+    oew: 32700,
+    maxPax: 149,
+    maxFuel: 16200,
+    mtow: 62800,
+    mlw: 51700,
+    ffIdle: 0.1,
+    ffMax: 1.05,
+    burnPerKm: 6.8,
+    climbFuel: 380,
+    reserveFuel: 1100,
+    gearTransit: 7,
+    flapTransit: 3,
+  };
   const REFERENCE_MPP = AIRCRAFT.a320.length / AIRCRAFT.a320.art.width; // light sizes are tuned for the A320 art
   for (const type of Object.values(AIRCRAFT)) {
     type.mpp = type.length / type.art.width;
@@ -1830,7 +1886,7 @@
     // A mixed fleet at the gates; each stand is as long as the aircraft parked on it.
     for (let x = a0 + 40, i = 0; x < terminalEnd - 30; i += 1) {
       const pick = hash2(i, runway.start + 9);
-      const type = pick < 0.25 ? AIRCRAFT.b744 : pick < 0.45 ? AIRCRAFT.b722 : AIRCRAFT.a320;
+      const type = pick < 0.2 ? AIRCRAFT.b744 : pick < 0.35 ? AIRCRAFT.b722 : pick < 0.6 ? AIRCRAFT.b733 : AIRCRAFT.a320;
       const parkedX = x + type.length / 2;
       x += type.length + 22;
       if (hash2(i, runway.start) < 0.22) continue;

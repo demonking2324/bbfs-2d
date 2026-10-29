@@ -1,6 +1,6 @@
 // Offline support: the game shell is cached on install; Google Fonts are cached as they are first used.
 // Bump VERSION whenever a cached file changes so players get the update.
-const VERSION = "bbfs2d-v8";
+const VERSION = "bbfs2d-v9";
 const FONT_CACHE = "bbfs2d-fonts";
 const SHELL = [
   "./",
@@ -19,6 +19,8 @@ const SHELL = [
   "assets/aircraft/b744/b744-gear-down.png",
   "assets/aircraft/b722/b722-gear-up.png",
   "assets/aircraft/b722/b722-gear-down.png",
+  "assets/aircraft/b733/b733-gear-up.png",
+  "assets/aircraft/b733/b733-gear-down.png",
 ];
 
 self.addEventListener("install", (event) => {
