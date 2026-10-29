@@ -3593,6 +3593,8 @@
     else if (sim.state !== "ready") wake.request();
   });
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", resize);
+  window.visualViewport?.addEventListener("resize", resize);
 
   function updateKeys(dt) {
     const keys = input.keys;
@@ -3642,6 +3644,11 @@
         if (!sim.resultShown && sim.endTimer > (sim.state === "crashed" ? 1.8 : 1)) showResult();
       }
     }
+    // iOS home-screen apps can change the layout (rotation, status bar) without a usable resize event;
+    // a canvas whose pixel size no longer matches its box gets stretched, so re-check every frame.
+    const box = (value) => Math.max(1, value);
+    if (box(canvas.clientWidth) !== view.w || box(canvas.clientHeight) !== view.h || box(vdCanvas.clientWidth) !== view.vdW
+      || box(vdCanvas.clientHeight) !== view.vdH || Math.min(window.devicePixelRatio || 1, view.dprCap) !== view.dpr) resize();
     updateCamera(dt);
     const renderStart = performance.now();
     render();
