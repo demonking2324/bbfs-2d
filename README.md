@@ -1,6 +1,6 @@
 # BBFS 2D
 
-A mobile-first, side-view flight sim. Fly an Airbus A320, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night.
+A mobile-first, side-view flight sim. Fly an Airbus A320, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night. Paint your own livery, and fly a new daily challenge every day.
 
 **Play it:** https://demonking2324.github.io/bbfs-2d/ (works on phones; add it to the home screen to install).
 
@@ -50,7 +50,7 @@ Before each flight you choose passengers and fuel. The sheet shows takeoff and e
 
 ## Challenges
 
-Ten scenarios with 1–3 stars each, saved in the browser. Open **CHALLENGES** on the start screen.
+Thirteen scenarios with 1–3 stars each, saved in the browser. Open **CHALLENGES** on the start screen.
 
 | Challenge | Aircraft · place | What happens |
 | --- | --- | --- |
@@ -64,6 +64,24 @@ Ten scenarios with 1–3 stars each, saved in the browser. Open **CHALLENGES** o
 | Into the valley | A320 · LOWI 26 at dusk | Mountain approach to a short, high runway |
 | Heavy on a short runway | 747 · EGGD 27 | Stop with 500–700 m to spare |
 | Butter the jumbo | 747 · EGPF 23 | Touch down under 100 ft/min |
+| The Rock | 737 · LXGB 27 | Gibraltar's 1,829 m runway with water at both ends; stop with 400–600 m to spare |
+| Engine out over the sea | 737 · LEBL 07L at night | Full 737; an engine fails at 100 ft over open water |
+| Storm over Mallorca | 737 · LEPA 24L at dusk | Thunderstorm gusts on final for Palma |
+
+## Daily challenge
+
+**DAILY** on the start screen is a new scenario every day: a random aircraft, route, weather, time of day and load, sometimes with a twist (an engine failure on takeoff, or starting high and fast with the gear up). Everyone gets the same one on the same date. Your best score for the day and your streak of days flown are kept in the browser.
+
+## Paint your own livery
+
+Tap **✎ PAINT** next to the plane on the start screen. Each aircraft keeps its own livery, saved in the browser, and you fly with it (the parked aircraft at the gates stay in their own colours).
+
+- **BRUSH** draws freehand, **ERASE** rubs paint out, and the slider sets the size.
+- **FILL** paints a whole panel: the tail, the fuselage or an engine. It stops at panel lines, windows and the edges of earlier paint, so you can brush a line first and fill above or below it.
+- **TEXT**: type your airline name, then tap the plane to place it (drag to move it before you let go).
+- Pick a colour from the swatches or any colour with the rainbow swatch. **UNDO** steps back, **CLEAR** strips the paint, **DONE** saves.
+
+Paint is blended into the art, so panel lines, windows and shading still show through. The editor shows the plane nose right, the way it flies, so text reads correctly in the air.
 
 ## Routes
 
@@ -76,10 +94,14 @@ Pick the route on the start screen. Runway lengths and airport elevations are re
 | Heathrow → Manchester | EGLL 27L → EGCC 23R | 243 km | FL150 | ~35 min |
 | Schiphol → Heathrow | EHAM 24 → EGLL 27L | 371 km | FL200 | ~50 min |
 | Munich → Innsbruck | EDDM 26L → LOWI 26 | 125 km | FL120 | ~21 min |
+| Barcelona → Palma | LEBL 07L → LEPA 24L | 203 km | FL150 | ~30 min |
+| Málaga → Gibraltar | LEMG 13 → LXGB 27 | 100 km | 7,000 ft | ~18 min |
 
 Each route has a real terrain profile you can fly into:
 
 - **Munich → Innsbruck**: Bavarian farmland, then the Alps. A 1,650 m ridge sits under the descent and the approach runs down the Inn valley between snow-capped peaks. The glideslope is intercepted 5,000 ft above the field.
+- **Barcelona → Palma** heads straight out over the Mediterranean and crosses Mallorca's hills before the approach to Palma.
+- **Málaga → Gibraltar** follows the Costa del Sol over the sea to Gibraltar's short runway across the isthmus. Land short or run off the end and you're in the water.
 - **Schiphol → Heathrow** crosses the North Sea (ships, open water; coming down there is a ditching) and finishes with the approach over London.
 - **City skylines** at London, Manchester, Glasgow and Edinburgh, lit up at night; hills on the UK routes.
 - A **TERRAIN · PULL UP** warning (with voice) sounds when the flight path is closing on rising ground within 20 seconds.

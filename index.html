@@ -142,7 +142,10 @@
       <div class="overlay start-overlay" id="start-overlay">
         <div class="card start-card">
           <div class="start-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>BBFS 2D</strong><small>FLIGHT SIM</small></div>
-          <img class="start-plane" id="start-plane" src="assets/aircraft/a320/a320-gear-down.png" alt="Side profile of the selected aircraft" />
+          <div class="hangar">
+            <img class="start-plane" id="start-plane" src="assets/aircraft/a320/a320-gear-down.png" alt="Side profile of the selected aircraft" />
+            <button class="livery-button" id="livery-button" title="Paint your own livery">✎ PAINT</button>
+          </div>
           <div class="conditions" role="group" aria-label="Route and conditions">
             <button class="condition" id="aircraft-picker"><small>AIRCRAFT</small><b id="aircraft-label">A320</b></button>
             <button class="condition" id="route-picker"><small>ROUTE</small><b id="route-label">EGLL → EGGD</b></button>
@@ -161,6 +164,7 @@
             </button>
           </div>
           <button class="challenge-entry" id="challenge-button"><b>CHALLENGES</b><span>Engine failures, go-arounds, storms, fog, mountains</span><em id="challenge-stars">★ 0 / 30</em></button>
+          <button class="challenge-entry daily-entry" id="daily-button"><b>DAILY</b><span id="daily-plan"></span><em id="daily-best"></em></button>
           <button class="install-button" id="install-button" hidden>INSTALL APP</button>
           <details class="help">
             <summary>HOW TO FLY</summary>
@@ -173,6 +177,7 @@
             <p class="keys">Keys: W/S pitch · ↑/↓ throttle · G gear · F/R flaps · Z speedbrake · B brakes · A autopilot · Q autothrust · L approach · P autopilot panel · T sim rate · Space pause</p>
             <p class="keys">Fly-by-wire: release the stick and the aircraft holds its flight path. Below 50 ft it holds attitude, so you flare. Moving the stick or throttle disconnects the autopilot or autothrust.</p>
             <p class="keys">Before departure the load sheet sets passengers and fuel: heavier means a longer takeoff roll, higher speeds and more fuel burn. Watch the maximum landing weight and keep the reserve.</p>
+            <p class="keys">Paint your own livery with <b>✎ PAINT</b> next to the plane: brush, fill a panel, or add your airline name. Each aircraft keeps its own.</p>
             <p class="keys">Install: on Android tap INSTALL APP (or the browser menu → Install). On iPhone use Share → Add to Home Screen.</p>
           </details>
         </div>
@@ -182,6 +187,29 @@
         <div class="card challenge-panel">
           <div class="panel-head"><strong class="menu-title">CHALLENGES</strong><button class="secondary-button small-button" id="challenge-back">BACK</button></div>
           <div class="challenge-list" id="challenge-list"></div>
+        </div>
+      </div>
+
+      <div class="overlay" id="livery-overlay" hidden>
+        <div class="card livery-card">
+          <div class="panel-head"><strong class="menu-title">LIVERY · <span id="livery-title">A320</span></strong><button class="primary-button small-button" id="livery-done">DONE</button></div>
+          <div class="livery-stage"><canvas id="livery-canvas" aria-label="Aircraft livery canvas: draw, fill or place text on the plane"></canvas></div>
+          <div class="livery-tools" role="group" aria-label="Paint tools">
+            <button class="tool-button" data-tool="brush" aria-pressed="true">BRUSH</button>
+            <button class="tool-button" data-tool="fill" aria-pressed="false">FILL</button>
+            <button class="tool-button" data-tool="text" aria-pressed="false">TEXT</button>
+            <button class="tool-button" data-tool="eraser" aria-pressed="false">ERASE</button>
+            <button class="tool-button" id="livery-undo">UNDO</button>
+            <button class="tool-button" id="livery-clear">CLEAR</button>
+          </div>
+          <div class="livery-colors" id="livery-colors" role="group" aria-label="Paint colour">
+            <label class="swatch swatch-custom" title="Pick any colour"><input type="color" id="livery-color" value="#c8102e" aria-label="Custom colour" /></label>
+          </div>
+          <div class="livery-text" id="livery-text-row" hidden>
+            <input type="text" id="livery-text" maxlength="28" placeholder="YOUR AIRLINE" autocomplete="off" spellcheck="false" />
+          </div>
+          <label class="slider-row"><span id="livery-size-label">BRUSH SIZE</span><b id="livery-size-value">6</b><input type="range" id="livery-size" min="1" max="40" step="1" /></label>
+          <p class="livery-hint" id="livery-hint"></p>
         </div>
       </div>
 

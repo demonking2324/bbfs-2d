@@ -403,3 +403,44 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   .route-dist { display: none; }
   .readout-sub { display: none; }
 }
+
+/* ---------- daily challenge ---------- */
+.daily-entry { border-color: var(--cyan); }
+.daily-entry b { color: var(--cyan); }
+.daily-entry span { white-space: pre-line; }
+.daily-entry em { color: var(--cyan); }
+.challenge-entry.daily-entry span { display: block; }
+
+/* ---------- livery ---------- */
+/* The menu plane faces right, as it flies, so painted text reads the right way round. */
+.hangar { position: relative; width: 100%; display: grid; justify-items: center; }
+.start-plane { transform: scaleX(-1); }
+.livery-button { position: absolute; right: 0; bottom: 0; padding: 6px 10px; cursor: pointer; background: #1a2427; border: 1px solid #3d4b4e; color: var(--lime); font: 600 12px var(--display); letter-spacing: .12em; }
+.livery-button:hover, .livery-button:focus-visible { border-color: var(--lime); }
+#livery-overlay { grid-template-columns: minmax(0, 1fr); }
+.livery-card { width: min(760px, 100%); grid-template-columns: minmax(0, 1fr); }
+.panel-head .primary-button.small-button { width: auto; min-height: 36px; padding: 0 18px; font-size: 14px; }
+.livery-stage { display: grid; place-items: center; padding: 12px; background: linear-gradient(#5f9ccc, #c9dfe9); border: 1px solid #2c393c; }
+#livery-canvas { display: block; width: min(100%, calc(36vh * var(--aspect, 3))); height: auto; touch-action: none; cursor: crosshair; }
+.livery-tools { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.tool-button { min-height: 38px; cursor: pointer; background: #1d2729; border: 1px solid #3d4b4e; color: var(--ink); font: 600 13px var(--display); letter-spacing: .08em; touch-action: manipulation; }
+.tool-button[aria-pressed="true"] { color: var(--lime); border-color: var(--lime); box-shadow: inset 0 -3px 0 var(--lime); }
+#livery-undo, #livery-clear { color: var(--muted); }
+.livery-colors { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { position: relative; width: 30px; height: 30px; padding: 0; cursor: pointer; background: var(--swatch); border: 2px solid #3d4b4e; touch-action: manipulation; }
+.swatch[aria-pressed="true"] { border-color: var(--lime); box-shadow: 0 0 0 2px var(--panel-solid), 0 0 0 3px var(--lime); }
+.swatch-custom { order: 1; display: block; overflow: hidden; background: conic-gradient(#f33, #fd3, #3d5, #3cf, #36f, #c3f, #f33); }
+.swatch-custom input { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); opacity: 0; cursor: pointer; }
+.livery-text input { width: 100%; min-height: 40px; padding: 0 12px; background: #0d1416; border: 1px solid #3d4b4e; color: var(--ink); font: 600 18px var(--display); letter-spacing: .06em; }
+.livery-text input:focus { outline: none; border-color: var(--lime); }
+.livery-hint { margin: 0; color: var(--muted); font: 11px/1.4 var(--mono); }
+@media (max-height: 460px) {
+  .livery-card { width: min(820px, 100%); }
+  .livery-stage { padding: 6px; }
+  #livery-canvas { width: min(100%, calc(30vh * var(--aspect, 3))); }
+  .tool-button { min-height: 32px; }
+  .swatch { width: 26px; height: 26px; }
+}
+@media (max-width: 600px) {
+  .livery-tools { grid-template-columns: repeat(3, 1fr); }
+}

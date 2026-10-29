@@ -306,6 +306,10 @@
     EHAM: { name: "Schiphol", elevFt: -11, tower: 101 },
     EDDM: { name: "Munich", elevFt: 1487, tower: 78 },
     LOWI: { name: "Innsbruck", elevFt: 1907, tower: 38 },
+    LEBL: { name: "Barcelona", elevFt: 12, tower: 62 },
+    LEPA: { name: "Palma", elevFt: 27, tower: 40 },
+    LEMG: { name: "Málaga", elevFt: 53, tower: 38 },
+    LXGB: { name: "Gibraltar", elevFt: 15, tower: 18 },
   };
   // terrain: [km from the departure threshold, ground elevation m, scenery theme, mountain factor 0–1].
   // The ground follows these points (smoothly) between the flat airport areas; themes pick the scenery.
@@ -329,6 +333,15 @@
     {
       from: ["EDDM", "26L", 4000], to: ["LOWI", "26", 2000], distance: 125000, cruiseFt: 12000, decel: 14000, interceptFt: 5000,
       terrain: [[-24, 520, "city"], [-4, 453, "farm"], [34, 600, "farm"], [52, 880, "hills", 0.35], [66, 1250, "alps", 1], [80, 1650, "alps", 1], [90, 1200, "alps", 1], [99, 720, "alps", 1], [110, 600, "alps", 1], [119, 585, "alps", 1]],
+    },
+    {
+      from: ["LEBL", "07L", 3552], to: ["LEPA", "24L", 3000], distance: 203000, cruiseFt: 15000, decel: 14000,
+      terrain: [[-18, 30, "city"], [-3, 4, "farm"], [5, 0, "sea"], [160, 30, "farm"], [174, 260, "hills", 0.3], [188, 110, "farm"], [198, 35, "city"]],
+    },
+    // Gibraltar's runway crosses the isthmus with water at both ends; Algeciras' hills lie across the bay.
+    {
+      from: ["LEMG", "13", 3200], to: ["LXGB", "27", 1829], distance: 100000, cruiseFt: 7000, decel: 9000,
+      terrain: [[-16, 40, "city"], [-3, 15, "farm"], [4, 0, "sea"], [104.5, 30, "hills", 0.5]],
     },
   ];
   const START_X = 70;
@@ -612,6 +625,25 @@
         return [check(`Sink rate under 400 fpm (${fpm})`, r && fpm < 400), check("Under 200 fpm, in the touchdown zone", r && fpm < 200 && r.zone), check("Under 100 fpm, no bounce", r && fpm < 100 && !sim.bounces)];
       },
     },
+    {
+      id: "rock", title: "THE ROCK", aircraft: "b733", route: 6, weather: "cloudy", time: "day", mode: "landing",
+      blurb: "Gibraltar's 1,829 m runway crosses the isthmus with water at both ends. Don't land short and stop on the tarmac.",
+      stars: (r) => {
+        const left = r ? r.runway.end - sim.x : 0;
+        return [check("Land and stop on the runway", r), check(`400 m of runway left (${Math.round(left)} m) and score 60+`, r && left >= 400 && r.score >= 60), check("600 m left and score 80+", r && left >= 600 && r.score >= 80)];
+      },
+    },
+    {
+      id: "island-engine-out", title: "ENGINE OUT OVER THE SEA", aircraft: "b733", route: 5, weather: "cloudy", time: "night", mode: "takeoff",
+      blurb: "A full 737 out of Barcelona at night, straight out over black water. An engine quits at 100 ft.",
+      load: (t) => ({ pax: t.maxPax, fuel: 9000 }), failAtFt: 100,
+      stars: (r) => [check("Climb to 1,500 ft", r), check(`Never slower than VR − 5 (lowest ${Math.round(sim.minIasAfterFailure ?? 0)} kt)`, r && (sim.minIasAfterFailure ?? 0) >= sim.takeoffVr - 5), check("Takeoff score 80+", r && r.score >= 80)],
+    },
+    {
+      id: "mallorca-storm", title: "STORM OVER MALLORCA", aircraft: "b733", route: 5, weather: "storm", time: "dusk", mode: "landing",
+      blurb: "A Mediterranean thunderstorm rolls over Palma at dusk. Hold the glideslope through the gusts.",
+      stars: (r) => landingStars(r, 65, 85),
+    },
   ];
   const challengeKey = (c) => `bbfs2d.challenge.${c.id}`;
   function readStars(c) {
@@ -623,6 +655,73 @@
     return true;
   }
   const starText = (count) => `${"★".repeat(count)}${"☆".repeat(3 - count)}`;
+
+  // ---------- daily challenge ----------
+  // Everyone gets the same scenario on the same local date: aircraft, route, conditions, load and a possible twist.
+  const dayKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const dayNumber = (key) => Math.round(Date.UTC(...key.split("-").map((v, i) => Number(v) - (i === 1 ? 1 : 0))) / 86400000);
+  function dailyChallenge(date = new Date()) {
+    const key = dayKey(date);
+    const day = dayNumber(key);
+    const roll = (i) => hash2(day, i * 7.31);
+    const weighted = (entries, r) => {
+      let t = r * entries.reduce((sum, [, weight]) => sum + weight, 0);
+      return entries.find(([, weight]) => (t -= weight) < 0)?.[0] ?? entries[0][0];
+    };
+    const ids = Object.keys(AIRCRAFT);
+    const aircraftId = ids[Math.floor(roll(1) * ids.length)];
+    const routeIndex = Math.floor(roll(2) * ROUTES.length);
+    const takeoff = roll(3) < 0.3;
+    const weatherKey = weighted([["clear", 3], ["cloudy", 4], ["storm", 2], ["fog", takeoff ? 0 : 2]], roll(4));
+    const timeKey = weighted([["day", 5], ["dusk", 3], ["night", 3]], roll(5));
+    const loadFactor = 0.55 + roll(6) * 0.45;
+    const twist = roll(7);
+    const label = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" }).toUpperCase();
+    const c = {
+      id: "daily", daily: key, title: `DAILY · ${label}`, aircraft: aircraftId, route: routeIndex, weather: weatherKey, time: timeKey, mode: takeoff ? "takeoff" : "landing",
+      load: (t) => {
+        const pax = Math.round(t.maxPax * loadFactor);
+        return { pax, fuel: Math.min(defaultLoad(t).fuel, t.maxFuel, t.mtow - t.oew - pax * PAX_MASS) };
+      },
+    };
+    const def = ROUTES[routeIndex];
+    const place = takeoff ? `${AIRPORTS[def.from[0]].name} ${def.from[1]}` : `${AIRPORTS[def.to[0]].name} ${def.to[1]}`;
+    if (takeoff && twist < 0.4) {
+      c.failAtFt = 100;
+      c.blurb = `Takeoff from ${place}. An engine fails at 100 ft.`;
+      c.stars = (r) => [check("Climb to 1,500 ft", r), check(`Never slower than VR − 5 (lowest ${Math.round(sim.minIasAfterFailure ?? 0)} kt)`, r && (sim.minIasAfterFailure ?? 0) >= sim.takeoffVr - 5), check("Takeoff score 75+", r && r.score >= 75)];
+    } else if (takeoff) {
+      c.blurb = `Takeoff from ${place}, ${Math.round(loadFactor * 100)}% full.`;
+      c.stars = (r) => [check("Climb to 1,500 ft", r), check("Takeoff score 70+", r && r.score >= 70), check("Takeoff score 90+", r && r.score >= 90)];
+    } else if (twist < 0.25) {
+      c.setup = () => setupFinal(13000, 200, { flap: 1, gear: false, above: 200 });
+      c.blurb = `Into ${place}, but you're high and fast: 200 kt, flaps ${AIRCRAFT[aircraftId].flaps[1].label}, gear up.`;
+      c.stars = (r) => landingStars(r, 60, 80);
+    } else {
+      c.blurb = `Approach into ${place}, ${Math.round(loadFactor * 100)}% full.`;
+      c.stars = (r) => landingStars(r, 60, 80);
+    }
+    return c;
+  }
+  // Best daily score per date, for the score to beat and the streak.
+  function readDaily() {
+    try { return JSON.parse(localStorage.getItem("bbfs2d.daily") || "{}"); } catch { return {}; }
+  }
+  function saveDaily(key, score) {
+    const log = readDaily();
+    if (key in log && log[key] >= score) return false;
+    log[key] = score;
+    try { localStorage.setItem("bbfs2d.daily", JSON.stringify(log)); } catch { return false; }
+    return true;
+  }
+  function dailyStreak(log, today) {
+    let streak = 0;
+    for (let day = dayNumber(today) - (today in log ? 0 : 1); ; day -= 1) {
+      const date = new Date(day * 86400000);
+      if (!(dayKey(new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) in log)) return streak;
+      streak += 1;
+    }
+  }
 
   function challengeTick() {
     const c = challenge;
@@ -2511,18 +2610,22 @@
     ctx.restore();
   }
   // Sprites are tinted on their own canvas so the darkening only touches the aircraft's pixels. Cached per tint step.
+  // Works for the stock images and for painted (livery) canvases, which are keyed by an id instead of a src.
   const spriteCache = new Map();
+  const spriteIds = new WeakMap();
+  let nextSpriteId = 0;
   function shadedSprite(image, darkness, burnt) {
-    if (!image.complete || !image.naturalWidth) return null;
+    if (image.complete === false || !(image.naturalWidth ?? image.width)) return null;
     const level = Math.round(clamp(darkness, 0, 1) * 20);
     if (!level && !burnt) return image;
-    const key = `${image.src}|${level}|${burnt}|${run.time}`;
+    if (!spriteIds.has(image)) spriteIds.set(image, (nextSpriteId += 1));
+    const key = `${spriteIds.get(image)}|${level}|${burnt}|${run.time}`;
     let shaded = spriteCache.get(key);
     if (!shaded) {
       if (spriteCache.size > 40) spriteCache.clear();
       shaded = document.createElement("canvas");
-      shaded.width = image.naturalWidth;
-      shaded.height = image.naturalHeight;
+      shaded.width = image.naturalWidth ?? image.width;
+      shaded.height = image.naturalHeight ?? image.height;
       const c = shaded.getContext("2d");
       c.drawImage(image, 0, 0);
       c.globalCompositeOperation = "source-atop";
@@ -2555,7 +2658,8 @@
   }
 
   function drawAircraft() {
-    const image = sim.gearPos >= 0.5 ? sprites.gearDown : sprites.gearUp;
+    const set = aircraft.painted || sprites;
+    const image = sim.gearPos >= 0.5 ? set.gearDown : set.gearUp;
     const scale = view.ppm * MPP;
     const art = aircraft.art;
     const crashed = sim.state === "crashed";
@@ -3052,14 +3156,21 @@
       if (!item.ok) break;
       stars += 1;
     }
-    const record = saveStars(c, stars);
     card.classList.toggle("is-crash", stars === 0);
-    $("#result-kicker").textContent = `CHALLENGE · ${c.title}${record ? " · NEW BEST" : ""}`;
+    if (c.daily) {
+      const score = report?.score ?? 0;
+      const record = saveDaily(c.daily, score);
+      $("#result-kicker").textContent = `${c.title} · SCORE ${score}${record ? " · NEW BEST" : ` · BEST ${readDaily()[c.daily]}`}`;
+    } else {
+      const record = saveStars(c, stars);
+      $("#result-kicker").textContent = `CHALLENGE · ${c.title}${record ? " · NEW BEST" : ""}`;
+    }
     $("#result-title").textContent = starText(stars);
     const reason = crashed ? `${sim.crash.title}: ${sim.crash.copy}` : sim.goAround?.called && sim.state === "landed" ? "You landed instead of going around." : report ? report.copy : "";
     $("#result-copy").textContent = `${checks.map((item) => `${item.ok ? "✓" : "✗"} ${item.label}`).join("   ")}${reason ? `\n${reason}` : ""}`;
     stats.replaceChildren(...(report ? report.stats : [["DISTANCE FLOWN", km(Math.max(0, sim.x - START_X))], ["FLIGHT TIME", clock(sim.time)]]).map(statRow));
     updateChallengeMenu();
+    updateDailyMenu();
   }
 
   // ---------- audio ----------
@@ -3315,10 +3426,20 @@
     $("#landing-plan").textContent = `${route.to.code} ${route.to.runway} · 9 KM FINAL, CONFIGURED`;
     $("#weather-label").textContent = WEATHER[settings.weather].label;
     $("#aircraft-label").textContent = aircraft.name;
-    $("#start-plane").src = aircraft.sprites.gearDown;
+    $("#start-plane").src = aircraft.paintedUrl || aircraft.sprites.gearDown;
     $("#plan-distance").textContent = `${aircraft.name} · ${km(TOUCHDOWN_X - START_X)} · ${route.cruiseLabel} · ~${routeMinutes()} MIN`;
     $("#time-label").textContent = TIMES[settings.time].label;
     updateChallengeMenu();
+    updateDailyMenu();
+  }
+  function updateDailyMenu() {
+    const c = dailyChallenge();
+    const def = ROUTES[c.route];
+    const airport = c.mode === "takeoff" ? def.from : def.to;
+    const log = readDaily();
+    const streak = dailyStreak(log, c.daily);
+    $("#daily-plan").textContent = `${AIRCRAFT[c.aircraft].name} · ${airport[0]} ${airport[1]} · ${WEATHER[c.weather].label} · ${TIMES[c.time].label}\n${c.blurb}`;
+    $("#daily-best").textContent = `${c.daily in log ? `BEST ${log[c.daily]}` : "NOT FLOWN"}${streak > 1 ? ` · ${streak} DAYS` : ""}`;
   }
   function updateChallengeMenu() {
     const total = CHALLENGES.reduce((sum, c) => sum + readStars(c), 0);
@@ -3421,6 +3542,261 @@
     $("#challenge-overlay").hidden = false;
   });
   $("#challenge-back").addEventListener("click", () => { $("#challenge-overlay").hidden = true; });
+  $("#daily-button").addEventListener("click", () => startChallenge(dailyChallenge()));
+
+  // ---------- liveries ----------
+  // A livery is a paint layer the size of the type's sprite canvas. It is multiplied onto the art, so panel lines,
+  // windows and shading show through, and clipped to the aircraft's own pixels. Each type keeps its own, in the browser.
+  // The editor shows the art mirrored, nose right, exactly as it flies; text is drawn mirrored into the layer to match.
+  const liveryKey = (type) => `bbfs2d.livery.${type.id}`;
+  const imageReady = (image) => (image.complete && image.naturalWidth ? Promise.resolve() : image.decode());
+  function newLayer(type) {
+    const layer = document.createElement("canvas");
+    layer.width = type.art.width;
+    layer.height = type.art.height;
+    return layer;
+  }
+  function paintSprite(image, layer, canvas = document.createElement("canvas")) {
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const c = canvas.getContext("2d");
+    c.drawImage(image, 0, 0);
+    c.globalCompositeOperation = "multiply";
+    c.drawImage(layer, 0, 0);
+    c.globalCompositeOperation = "destination-in";
+    c.drawImage(image, 0, 0);
+    return canvas;
+  }
+  function applyLivery(type, layer) {
+    type.livery = layer;
+    type.painted = layer ? { gearUp: paintSprite(type.images.gearUp, layer), gearDown: paintSprite(type.images.gearDown, layer) } : null;
+    type.paintedUrl = layer ? type.painted.gearDown.toDataURL() : null;
+  }
+  for (const type of Object.values(AIRCRAFT)) {
+    let saved = null;
+    try { saved = localStorage.getItem(liveryKey(type)); } catch { /* storage unavailable */ }
+    if (!saved) continue;
+    const stored = new Image();
+    stored.src = saved;
+    Promise.all([stored.decode(), imageReady(type.images.gearUp), imageReady(type.images.gearDown)]).then(() => {
+      const layer = newLayer(type);
+      layer.getContext("2d").drawImage(stored, 0, 0);
+      applyLivery(type, layer);
+      if (type === aircraft) updateMenu();
+    }).catch(() => { /* a broken save just means no livery */ });
+  }
+
+  const LIVERY_COLORS = ["#c8102e", "#f26b1d", "#f6c21c", "#b6d433", "#1e8a4c", "#4fb3e8", "#1f6fd1", "#0b2a5b", "#6b3fa0", "#e84d8a", "#8a9196", "#161616", "#ffffff"];
+  const LIVERY_HINTS = {
+    brush: "Draw on the plane. Paint only shows on the aircraft itself.",
+    fill: "Tap a panel to fill it. Panel lines and windows show through the paint.",
+    text: "Type your text, then tap the plane to place it. Drag to move it before you let go.",
+    eraser: "Rub out paint back to bare metal.",
+  };
+  const liveryCanvas = $("#livery-canvas");
+  const liveryCtx = liveryCanvas.getContext("2d");
+  const liveryView = document.createElement("canvas");
+  const editor = { type: null, layer: null, tool: "brush", color: LIVERY_COLORS[0], brushSize: 6, textSize: 24, undo: [], pointer: null, last: null, snapshot: null };
+  const layerCtx = () => editor.layer.getContext("2d");
+
+  function openLivery() {
+    const type = aircraft;
+    Promise.all([imageReady(type.images.gearUp), imageReady(type.images.gearDown), document.fonts?.load('700 24px "Barlow Condensed"')]).catch(() => {}).then(() => {
+      editor.type = type;
+      editor.layer = newLayer(type);
+      if (type.livery) layerCtx().drawImage(type.livery, 0, 0);
+      editor.undo = [];
+      liveryCanvas.width = type.art.width * 2;
+      liveryCanvas.height = type.art.height * 2;
+      liveryCanvas.style.setProperty("--aspect", type.art.width / type.art.height);
+      $("#livery-title").textContent = type.name;
+      setLiveryTool(editor.tool);
+      renderLivery();
+      $("#livery-overlay").hidden = false;
+    });
+  }
+  function closeLivery() {
+    const type = editor.type;
+    const pixels = layerCtx().getImageData(0, 0, editor.layer.width, editor.layer.height).data;
+    let painted = false;
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) { painted = true; break; }
+    try {
+      if (painted) localStorage.setItem(liveryKey(type), editor.layer.toDataURL());
+      else localStorage.removeItem(liveryKey(type));
+    } catch { flash("LIVERY NOT SAVED · STORAGE FULL"); }
+    applyLivery(type, painted ? editor.layer : null);
+    editor.layer = null;
+    $("#livery-overlay").hidden = true;
+    updateMenu();
+  }
+  function renderLivery() {
+    const painted = paintSprite(editor.type.images.gearDown, editor.layer, liveryView);
+    const zoom = liveryCanvas.width / painted.width;
+    liveryCtx.setTransform(1, 0, 0, 1, 0, 0);
+    liveryCtx.clearRect(0, 0, liveryCanvas.width, liveryCanvas.height);
+    liveryCtx.setTransform(-zoom, 0, 0, zoom, liveryCanvas.width, 0);
+    liveryCtx.imageSmoothingQuality = "high";
+    liveryCtx.drawImage(painted, 0, 0);
+  }
+  function setLiveryTool(tool) {
+    editor.tool = tool;
+    for (const button of document.querySelectorAll("[data-tool]")) button.setAttribute("aria-pressed", String(button.dataset.tool === tool));
+    const text = tool === "text";
+    $("#livery-text-row").hidden = !text;
+    $("#livery-size-label").textContent = text ? "TEXT SIZE" : "BRUSH SIZE";
+    const size = $("#livery-size");
+    size.min = text ? 6 : 1;
+    size.max = text ? 64 : 40;
+    size.value = text ? editor.textSize : editor.brushSize;
+    $("#livery-size-value").textContent = size.value;
+    $("#livery-hint").textContent = LIVERY_HINTS[tool];
+  }
+  function setLiveryColor(color) {
+    editor.color = color;
+    $("#livery-color").value = color;
+    for (const swatch of document.querySelectorAll(".swatch")) swatch.setAttribute("aria-pressed", String(swatch.dataset.color === color));
+  }
+  function pushUndo() {
+    editor.undo.push(layerCtx().getImageData(0, 0, editor.layer.width, editor.layer.height));
+    if (editor.undo.length > 30) editor.undo.shift();
+  }
+  // Pointer position in layer pixels; the view is mirrored, so x runs from the right.
+  function layerPoint(event) {
+    const rect = liveryCanvas.getBoundingClientRect();
+    return { x: (1 - (event.clientX - rect.left) / rect.width) * editor.layer.width, y: ((event.clientY - rect.top) / rect.height) * editor.layer.height };
+  }
+  function strokeTo(point) {
+    const c = layerCtx();
+    c.save();
+    c.globalCompositeOperation = editor.tool === "eraser" ? "destination-out" : "source-over";
+    c.strokeStyle = editor.color;
+    c.lineWidth = editor.brushSize;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.beginPath();
+    c.moveTo(editor.last.x, editor.last.y);
+    c.lineTo(point.x + 0.01, point.y);
+    c.stroke();
+    c.restore();
+    editor.last = point;
+  }
+  function drawLiveryText(point) {
+    const c = layerCtx();
+    c.save();
+    c.translate(point.x, point.y);
+    c.scale(-1, 1);
+    c.font = `700 ${editor.textSize}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillStyle = editor.color;
+    c.fillText($("#livery-text").value.trim(), 0, 0);
+    c.restore();
+  }
+  // Flood fill on what you see: spreads through smooth shading but stops at panel lines, windows and paint edges,
+  // then grows one pixel so no seam is left along the line (multiply keeps the line visible anyway).
+  function liveryFill(point) {
+    const { width: w, height: h } = editor.layer;
+    const x0 = Math.floor(point.x);
+    const y0 = Math.floor(point.y);
+    if (x0 < 0 || y0 < 0 || x0 >= w || y0 >= h) return false;
+    const view = paintSprite(editor.type.images.gearDown, editor.layer, liveryView).getContext("2d").getImageData(0, 0, w, h).data;
+    const start = y0 * w + x0;
+    if (view[start * 4 + 3] < 100) return false;
+    const diff = (a, b) => Math.max(Math.abs(view[a * 4] - view[b * 4]), Math.abs(view[a * 4 + 1] - view[b * 4 + 1]), Math.abs(view[a * 4 + 2] - view[b * 4 + 2]));
+    const region = new Uint8Array(w * h);
+    const stack = [start];
+    region[start] = 1;
+    while (stack.length) {
+      const i = stack.pop();
+      const x = i % w;
+      for (const n of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) {
+        if (n < 0 || n >= w * h || region[n] || view[n * 4 + 3] < 100) continue;
+        if (diff(n, i) > 8 || diff(n, start) > 80) continue;
+        region[n] = 1;
+        stack.push(n);
+      }
+    }
+    const c = layerCtx();
+    const layer = c.getImageData(0, 0, w, h);
+    const rgb = [1, 3, 5].map((at) => parseInt(editor.color.slice(at, at + 2), 16));
+    for (let i = 0; i < w * h; i += 1) {
+      let hit = region[i];
+      if (!hit && view[i * 4 + 3]) {
+        const x = i % w;
+        hit = (x > 0 && region[i - 1]) || (x < w - 1 && region[i + 1]) || region[i - w] || region[i + w];
+      }
+      if (!hit) continue;
+      layer.data.set([...rgb, 255], i * 4);
+    }
+    c.putImageData(layer, 0, 0);
+    return true;
+  }
+  liveryCanvas.addEventListener("pointerdown", (event) => {
+    if (editor.pointer !== null) return;
+    event.preventDefault();
+    const point = layerPoint(event);
+    if (editor.tool === "text" && !$("#livery-text").value.trim()) {
+      $("#livery-text").focus();
+      return;
+    }
+    pushUndo();
+    editor.pointer = event.pointerId;
+    liveryCanvas.setPointerCapture(event.pointerId);
+    if (editor.tool === "fill") {
+      if (!liveryFill(point)) editor.undo.pop();
+      editor.pointer = null;
+    } else if (editor.tool === "text") {
+      editor.snapshot = editor.undo[editor.undo.length - 1];
+      drawLiveryText(point);
+    } else {
+      editor.last = point;
+      strokeTo(point);
+    }
+    renderLivery();
+  });
+  liveryCanvas.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== editor.pointer) return;
+    const point = layerPoint(event);
+    if (editor.tool === "text") {
+      layerCtx().putImageData(editor.snapshot, 0, 0);
+      drawLiveryText(point);
+    } else {
+      strokeTo(point);
+    }
+    renderLivery();
+  });
+  const endLiveryPointer = (event) => { if (event.pointerId === editor.pointer) editor.pointer = null; };
+  liveryCanvas.addEventListener("pointerup", endLiveryPointer);
+  liveryCanvas.addEventListener("pointercancel", endLiveryPointer);
+  $("#livery-colors").prepend(...LIVERY_COLORS.map((color) => {
+    const swatch = document.createElement("button");
+    swatch.className = "swatch";
+    swatch.dataset.color = color;
+    swatch.style.setProperty("--swatch", color);
+    swatch.setAttribute("aria-label", `Colour ${color}`);
+    swatch.addEventListener("click", () => setLiveryColor(color));
+    return swatch;
+  }));
+  setLiveryColor(editor.color);
+  $("#livery-color").addEventListener("input", (event) => setLiveryColor(event.target.value));
+  for (const button of document.querySelectorAll("[data-tool]")) button.addEventListener("click", () => setLiveryTool(button.dataset.tool));
+  $("#livery-size").addEventListener("input", (event) => {
+    editor[editor.tool === "text" ? "textSize" : "brushSize"] = Number(event.target.value);
+    $("#livery-size-value").textContent = event.target.value;
+  });
+  $("#livery-undo").addEventListener("click", () => {
+    const previous = editor.undo.pop();
+    if (!previous) return;
+    layerCtx().putImageData(previous, 0, 0);
+    renderLivery();
+  });
+  $("#livery-clear").addEventListener("click", () => {
+    pushUndo();
+    layerCtx().clearRect(0, 0, editor.layer.width, editor.layer.height);
+    renderLivery();
+  });
+  $("#livery-button").addEventListener("click", openLivery);
+  $("#livery-done").addEventListener("click", closeLivery);
 
   // Load sheet: passengers and fuel set the weight, which sets the speeds and the performance.
   let loadMode = "flight";
@@ -3611,6 +3987,7 @@
   window.addEventListener("appinstalled", () => { installButton.hidden = true; });
 
   window.addEventListener("keydown", (event) => {
+    if (event.target.closest?.("input, textarea")) return;
     const key = event.key.toLowerCase();
     if (["arrowup", "arrowdown", " ", "w", "s"].includes(key)) event.preventDefault();
     input.keys.add(key);
@@ -3728,7 +4105,7 @@
     sim, input, step, startFlight, showMenu, startReplay, exitReplay, replay, setThrottle, moveFlaps, toggleGear, toggleAp, toggleAthr, toggleAppr, settings,
     PHYSICS_DT, glidepathAlt, profileAlt, groundAt, applyRoute: (index) => { settings.route = index; applyRoute(index); resetSim(); updateMenu(); },
     getMode: () => mode,
-    vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, useSettings, terrainAhead, themeAt, mountainsAt,
+    vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, dailyChallenge, useSettings, terrainAhead, themeAt, mountainsAt,
     setLoad: (load) => setLoad(load),
     getChallenge: () => challenge,
     renderFrame: () => { updateCamera(0.016); render(); drawVD(); updateHud(); },
