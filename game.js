@@ -256,6 +256,60 @@
     gearTransit: 7,
     flapTransit: 3,
   };
+  // Airbus A340-300: long-haul quad on four modest CFM56-5Cs, so heavy takeoffs are long; referenced to 200 t.
+  AIRCRAFT.a343 = {
+    id: "a343",
+    name: "A340-300",
+    sprites: { gearUp: "assets/aircraft/a343/a343-gear-up.png", gearDown: "assets/aircraft/a343/a343-gear-down.png" },
+    art: {
+      width: 613, height: 157, mainWheel: [303, 154.5], noseWheel: 64.5, tailBumper: [468, 127.5], nozzles: [[272, 130], [335, 125]],
+      beacon: [258, 80], bellyBeacon: [360, 134], tailStrobe: [610, 88], wingtip: [405, 84], landingLight: [64, 140],
+      windows: [{ y: 98, from: 72.5, to: 473, step: 5, r: 1.3 }], fin: [575, 40],
+    },
+    length: 63.7,
+    span: 60.3,
+    wingArea: 361.6,
+    mass: 200000,
+    maxThrust: 604000,
+    idleThrust: 0.035,
+    cl0: 0.2,
+    clAlpha: 5.2,
+    cd0: 0.019,
+    inducedK: 0.042,
+    gearCd: 0.016,
+    spoilerCd: 0.065,
+    spoilerLift: 0.55,
+    rollMu: 0.016,
+    brakeMu: 0.3,
+    flaps: [
+      { label: "0", cl: 0, cd: 0, clMax: 1.45, vfe: 330, speed: 250 },
+      { label: "1", cl: 0.35, cd: 0.008, clMax: 1.95, vfe: 240, speed: 210 },
+      { label: "2", cl: 0.6, cd: 0.02, clMax: 2.2, vfe: 196, speed: 185 },
+      { label: "3", cl: 0.8, cd: 0.035, clMax: 2.4, vfe: 186, speed: 165 },
+      { label: "FULL", cl: 1.05, cd: 0.05, clMax: 2.65, vfe: 180, speed: 145 },
+    ],
+    flapSchedule: [[32000, 1], [23000, 2], [16000, 3], [11500, 4]],
+    takeoffFlap: 2,
+    vmo: 330,
+    vle: 250,
+    vr: 150,
+    vapp: 142,
+    rotatePitch: 8,
+    climbPitch: 11,
+    engines: 4,
+    oew: 129800,
+    maxPax: 295,
+    maxFuel: 111000,
+    mtow: 276500,
+    mlw: 192000,
+    ffIdle: 0.12,
+    ffMax: 1.05,
+    burnPerKm: 15,
+    climbFuel: 900,
+    reserveFuel: 4500,
+    gearTransit: 9,
+    flapTransit: 3.5,
+  };
   const REFERENCE_MPP = AIRCRAFT.a320.length / AIRCRAFT.a320.art.width; // light sizes are tuned for the A320 art
   for (const type of Object.values(AIRCRAFT)) {
     type.mpp = type.length / type.art.width;
@@ -1985,7 +2039,7 @@
     // A mixed fleet at the gates; each stand is as long as the aircraft parked on it.
     for (let x = a0 + 40, i = 0; x < terminalEnd - 30; i += 1) {
       const pick = hash2(i, runway.start + 9);
-      const type = pick < 0.2 ? AIRCRAFT.b744 : pick < 0.35 ? AIRCRAFT.b722 : pick < 0.6 ? AIRCRAFT.b733 : AIRCRAFT.a320;
+      const type = pick < 0.15 ? AIRCRAFT.b744 : pick < 0.27 ? AIRCRAFT.a343 : pick < 0.4 ? AIRCRAFT.b722 : pick < 0.62 ? AIRCRAFT.b733 : AIRCRAFT.a320;
       const parkedX = x + type.length / 2;
       x += type.length + 22;
       if (hash2(i, runway.start) < 0.22) continue;
@@ -3599,35 +3653,153 @@
   const editor = { type: null, layer: null, tool: "brush", color: LIVERY_COLORS[0], brushSize: 6, textSize: 24, undo: [], pointer: null, last: null, snapshot: null };
   const layerCtx = () => editor.layer.getContext("2d");
 
-  function openLivery() {
+  // Opens the editor on the selected aircraft, with its saved livery or a given layer (from a code) still to be saved.
+  function openLivery(preset = null, hint = "") {
     const type = aircraft;
-    Promise.all([imageReady(type.images.gearUp), imageReady(type.images.gearDown), document.fonts?.load('700 24px "Barlow Condensed"')]).catch(() => {}).then(() => {
+    return Promise.all([imageReady(type.images.gearUp), imageReady(type.images.gearDown), document.fonts?.load('700 24px "Barlow Condensed"')]).catch(() => {}).then(() => {
       editor.type = type;
       editor.layer = newLayer(type);
-      if (type.livery) layerCtx().drawImage(type.livery, 0, 0);
+      if (preset || type.livery) layerCtx().drawImage(preset || type.livery, 0, 0);
       editor.undo = [];
+      $("#livery-code").value = "";
       liveryCanvas.width = type.art.width * 2;
       liveryCanvas.height = type.art.height * 2;
       liveryCanvas.style.setProperty("--aspect", type.art.width / type.art.height);
       $("#livery-title").textContent = type.name;
       setLiveryTool(editor.tool);
+      if (hint) $("#livery-hint").textContent = hint;
       renderLivery();
       $("#livery-overlay").hidden = false;
     });
   }
-  function closeLivery() {
-    const type = editor.type;
+  function layerIsPainted() {
     const pixels = layerCtx().getImageData(0, 0, editor.layer.width, editor.layer.height).data;
-    let painted = false;
-    for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) { painted = true; break; }
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) return true;
+    return false;
+  }
+  function saveLivery() {
+    const type = editor.type;
+    const painted = layerIsPainted();
     try {
       if (painted) localStorage.setItem(liveryKey(type), editor.layer.toDataURL());
       else localStorage.removeItem(liveryKey(type));
     } catch { flash("LIVERY NOT SAVED · STORAGE FULL"); }
     applyLivery(type, painted ? editor.layer : null);
+  }
+  function closeLivery() {
+    saveLivery();
     editor.layer = null;
     $("#livery-overlay").hidden = true;
     updateMenu();
+  }
+
+  // ---------- livery codes ----------
+  // A livery travels as text, "BBFS1.<type>.<data>": the paint layer with colours rounded to 5 bits per channel and
+  // alpha to 4 steps, stored as palette indices, deflated and base64url-encoded. Paste it, or open it as a #livery= link.
+  const CODE_VERSION = "BBFS1";
+  function toBase64Url(bytes) {
+    let text = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(text).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  }
+  const fromBase64Url = (text) => Uint8Array.from(atob(text.replaceAll("-", "+").replaceAll("_", "/")), (c) => c.charCodeAt(0));
+  const pipeBytes = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+  async function liveryCode(type, layer) {
+    const { width: w, height: h } = layer;
+    const pixels = layer.getContext("2d").getImageData(0, 0, w, h).data;
+    const palette = [0];
+    const lookup = new Map([[0, 0]]);
+    const indices = new Uint32Array(w * h);
+    for (let i = 0; i < w * h; i += 1) {
+      const alpha = pixels[i * 4 + 3] >> 6;
+      if (!alpha) continue;
+      const packed = ((pixels[i * 4] >> 3) << 12) | ((pixels[i * 4 + 1] >> 3) << 7) | ((pixels[i * 4 + 2] >> 3) << 2) | alpha;
+      let index = lookup.get(packed);
+      if (index === undefined) {
+        index = palette.length;
+        palette.push(packed);
+        lookup.set(packed, index);
+      }
+      indices[i] = index;
+    }
+    const wide = palette.length > 256 ? 2 : 1;
+    const bytes = new Uint8Array(7 + palette.length * 3 + w * h * wide);
+    bytes.set([wide, w >> 8, w & 255, h >> 8, h & 255, palette.length >> 8, palette.length & 255]);
+    palette.forEach((packed, i) => bytes.set([packed >> 16, (packed >> 8) & 255, packed & 255], 7 + i * 3));
+    const body = 7 + palette.length * 3;
+    for (let i = 0; i < w * h; i += 1) {
+      if (wide === 2) bytes.set([indices[i] >> 8, indices[i] & 255], body + i * 2);
+      else bytes[body + i] = indices[i];
+    }
+    return `${CODE_VERSION}.${type.id}.${toBase64Url(await pipeBytes(bytes, new CompressionStream("deflate-raw")))}`;
+  }
+  async function readLiveryCode(code) {
+    const match = /^BBFS1\.([a-z0-9]+)\.([A-Za-z0-9_-]+)$/.exec(code.replace(/\s+/g, ""));
+    const type = match && AIRCRAFT[match[1]];
+    if (!type) throw new Error("That isn't a livery code. Codes start with BBFS1.");
+    let bytes;
+    try { bytes = await pipeBytes(fromBase64Url(match[2]), new DecompressionStream("deflate-raw")); } catch { throw new Error("That code is incomplete. Copy the whole code and try again."); }
+    const [wide, w1, w0, h1, h0, n1, n0] = bytes;
+    const w = (w1 << 8) | w0;
+    const h = (h1 << 8) | h0;
+    const count = (n1 << 8) | n0;
+    const body = 7 + count * 3;
+    if (w !== type.art.width || h !== type.art.height || bytes.length !== body + w * h * wide) throw new Error("That code doesn't fit this version of the game.");
+    const layer = newLayer(type);
+    const c = layer.getContext("2d");
+    const image = c.createImageData(w, h);
+    for (let i = 0; i < w * h; i += 1) {
+      const index = wide === 2 ? (bytes[body + i * 2] << 8) | bytes[body + i * 2 + 1] : bytes[body + i];
+      if (!index) continue;
+      const at = 7 + index * 3;
+      const packed = (bytes[at] << 16) | (bytes[at + 1] << 8) | bytes[at + 2];
+      const five = (shift) => (((packed >> shift) & 31) * 255) / 31;
+      image.data.set([five(12), five(7), five(2), (packed & 3) * 85], i * 4);
+    }
+    c.putImageData(image, 0, 0);
+    return { type, layer };
+  }
+  // Selects the code's aircraft (saving any work on the one being edited) and opens the editor on the livery.
+  async function useLiveryCode(code, source) {
+    const { type, layer } = await readLiveryCode(code);
+    if (editor.layer && editor.type !== type) saveLivery();
+    if (editor.layer && editor.type === type) {
+      pushUndo();
+      layerCtx().clearRect(0, 0, layer.width, layer.height);
+      layerCtx().drawImage(layer, 0, 0);
+      renderLivery();
+      $("#livery-hint").textContent = `Livery loaded from ${source}. Tap DONE to keep it, or UNDO to go back.`;
+      return;
+    }
+    settings.aircraft = type.id;
+    applyAircraft(type.id);
+    resetSim();
+    saveSettings();
+    updateMenu();
+    await openLivery(layer, `${type.name} livery loaded from ${source}. Tap DONE to keep it.`);
+  }
+  async function copyText(text, input) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      input.select();
+      return document.execCommand("copy");
+    }
+  }
+  async function shareLivery(asLink) {
+    if (!layerIsPainted()) {
+      $("#livery-hint").textContent = "Paint something first, then share it.";
+      return;
+    }
+    const code = await liveryCode(editor.type, editor.layer);
+    const text = asLink ? `${location.origin}${location.pathname}#livery=${code}` : code;
+    const field = $("#livery-code");
+    field.value = text;
+    const what = `${asLink ? "Link" : "Code"} ready (${text.length.toLocaleString("en-US")} characters). Anyone who ${asLink ? "opens the link" : "enters the code"} gets this livery.`;
+    $("#livery-hint").textContent = what;
+    const copied = await copyText(text, field);
+    if (field.value === text) $("#livery-hint").textContent = `${what} ${copied ? "Copied." : "Select it above and copy it."}`;
   }
   function renderLivery() {
     const painted = paintSprite(editor.type.images.gearDown, editor.layer, liveryView);
@@ -3795,7 +3967,17 @@
     layerCtx().clearRect(0, 0, editor.layer.width, editor.layer.height);
     renderLivery();
   });
-  $("#livery-button").addEventListener("click", openLivery);
+  $("#livery-button").addEventListener("click", () => openLivery());
+  $("#livery-share").addEventListener("click", () => shareLivery(false));
+  $("#livery-share-link").addEventListener("click", () => shareLivery(true));
+  $("#livery-use").addEventListener("click", () => {
+    const input = $("#livery-code-in");
+    if (!input.value.trim()) {
+      input.focus();
+      return;
+    }
+    useLiveryCode(input.value, "the code").then(() => { input.value = ""; }, (err) => { $("#livery-hint").textContent = err.message; });
+  });
   $("#livery-done").addEventListener("click", closeLivery);
 
   // Load sheet: passengers and fuel set the weight, which sets the speeds and the performance.
@@ -4099,13 +4281,19 @@
   updateMenu();
   showControlSettings();
   requestAnimationFrame(frame);
+  // A shared #livery= link selects that aircraft and opens the editor on the livery.
+  if (location.hash.startsWith("#livery=")) {
+    const code = decodeURIComponent(location.hash.slice("#livery=".length));
+    history.replaceState(null, "", location.pathname + location.search);
+    useLiveryCode(code, "a shared link").catch((err) => openLivery(null, err.message));
+  }
 
   // Hook for automated flight checks and console debugging.
   window.BBFS = {
     sim, input, step, startFlight, showMenu, startReplay, exitReplay, replay, setThrottle, moveFlaps, toggleGear, toggleAp, toggleAthr, toggleAppr, settings,
     PHYSICS_DT, glidepathAlt, profileAlt, groundAt, applyRoute: (index) => { settings.route = index; applyRoute(index); resetSim(); updateMenu(); },
     getMode: () => mode,
-    vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, dailyChallenge, useSettings, terrainAhead, themeAt, mountainsAt,
+    vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, dailyChallenge, liveryCode, readLiveryCode, useSettings, terrainAhead, themeAt, mountainsAt,
     setLoad: (load) => setLoad(load),
     getChallenge: () => challenge,
     renderFrame: () => { updateCamera(0.016); render(); drawVD(); updateHud(); },
