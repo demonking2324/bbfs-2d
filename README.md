@@ -1,6 +1,6 @@
 # BBFS 2D
 
-A mobile-first, side-view flight sim. Fly an Airbus A320, an Airbus A340-300, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night. Paint your own livery, and fly a new daily challenge every day.
+A mobile-first, side-view flight sim. Fly an Airbus A320, an Airbus A340-300, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night. Paint your own livery, fly a new daily challenge every day, or run your own airline in Career mode.
 
 **Play it:** https://demonking2324.github.io/bbfs-2d/ (works on phones; add it to the home screen to install).
 
@@ -67,6 +67,20 @@ Thirteen scenarios with 1–3 stars each, saved in the browser. Open **CHALLENGE
 | The Rock | 737 · LXGB 27 | Gibraltar's 1,829 m runway with water at both ends; stop with 400–600 m to spare |
 | Engine out over the sea | 737 · LEBL 07L at night | Full 737; an engine fails at 100 ft over open water |
 | Storm over Mallorca | 737 · LEPA 24L at dusk | Thunderstorm gusts on final for Palma |
+
+## Free flight and career
+
+The game opens on a choice of two modes. **FREE FLIGHT** is everything below: any aircraft and route, practice, challenges, the daily and your liveries. **‹ HOME** goes back to the choice.
+
+**CAREER** runs an airline:
+
+- **Found it:** name your airline, then paint its first aircraft, a 737-300. You start with $25,000 and a reputation of 50.
+- **Fly offers:** the hub lists four flight offers: route, passengers waiting, weather and time of day, with the estimated profit for the aircraft you've picked. Each one is a full flight, runway to runway. Heavy jets can't use short runways (the A340 and 747 need 2,500 m or more, which rules out places like Gibraltar and Innsbruck).
+- **Get paid:** tickets are passengers × a fare that grows with distance, scaled by your landing score (0.7× for a 0 up to 1.2× for a 100). Fuel and upkeep come off. A crash costs repairs (a quarter of the aircraft's price) and 15 reputation; landing somewhere else pays nothing; abandoning a flight still costs the upkeep. There are no restarts.
+- **Reputation** (0–100) rises with good landings and falls with bad ones, and decides how many passengers turn up.
+- **Grow the fleet:** buy the 727-200 ($70k), A320 ($90k), A340-300 ($220k) or 747-400 ($320k), and paint each one when it arrives. Pick which aircraft to fly in the fleet list.
+
+Career liveries are separate from free-flight ones. Progress is saved in the browser; **CLOSE AIRLINE** at the bottom of the hub starts over.
 
 ## Daily challenge
 

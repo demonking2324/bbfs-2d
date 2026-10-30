@@ -139,8 +139,53 @@
         </div>
       </div>
 
-      <div class="overlay start-overlay" id="start-overlay">
+      <div class="overlay" id="home-overlay">
+        <div class="card home-card">
+          <div class="start-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>BBFS 2D</strong><small>FLIGHT SIM</small></div>
+          <div class="home-modes">
+            <button class="home-mode" id="home-free">
+              <small>PLAY</small><b>FREE FLIGHT</b>
+              <span>Every aircraft and route, practice, challenges, the daily and your own liveries.</span>
+            </button>
+            <button class="home-mode is-career" id="home-career">
+              <small>PLAY</small><b>CAREER</b>
+              <span>Found an airline, paint its colours, fly paid routes and grow your fleet.</span>
+              <em id="home-career-status">START A NEW AIRLINE</em>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="found-overlay" hidden>
+        <div class="card found-card">
+          <small class="result-kicker">CAREER</small>
+          <strong class="menu-title">FOUND YOUR AIRLINE</strong>
+          <label class="found-field"><span>AIRLINE NAME</span><input type="text" id="airline-name" maxlength="22" placeholder="BBFS AIR" autocomplete="off" spellcheck="false" /></label>
+          <p class="load-note">You start with one 737-300 and $25,000. First, paint the 737 in your airline's colours.</p>
+          <div class="menu-row">
+            <button class="primary-button" id="found-go">PAINT YOUR 737</button>
+            <button class="secondary-button" id="found-back">BACK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="career-overlay" hidden>
+        <div class="card career-card">
+          <div class="panel-head"><div><small class="result-kicker">CAREER</small><strong class="career-name" id="career-name">BBFS AIR</strong></div><button class="secondary-button small-button" id="career-home">HOME</button></div>
+          <dl class="result-stats career-stats" id="career-stats"></dl>
+          <small class="career-heading">FLEET</small>
+          <div class="career-fleet" id="career-fleet"></div>
+          <small class="career-heading">FLIGHT OFFERS</small>
+          <div class="career-offers" id="career-offers"></div>
+          <small class="career-heading">RECENT FLIGHTS</small>
+          <ul class="career-log" id="career-log"></ul>
+          <button class="career-reset" id="career-reset">CLOSE AIRLINE</button>
+        </div>
+      </div>
+
+      <div class="overlay start-overlay" id="start-overlay" hidden>
         <div class="card start-card">
+          <button class="home-link" id="start-home">‹ HOME</button>
           <div class="start-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>BBFS 2D</strong><small>FLIGHT SIM</small></div>
           <div class="hangar">
             <img class="start-plane" id="start-plane" src="assets/aircraft/a320/a320-gear-down.png" alt="Side profile of the selected aircraft" />

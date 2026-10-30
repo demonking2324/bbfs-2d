@@ -854,6 +854,7 @@
 
   // Weight: empty aircraft + passengers + fuel. Fuel burns off in flight, so the mass keeps changing.
   function currentLoad() {
+    if (careerFlight) return { ...careerFlight.load };
     if (challenge?.load) return challenge.load(aircraft);
     const saved = settings.loads?.[`${aircraft.id}|${settings.route}`];
     return saved ? { ...saved } : defaultLoad();
@@ -3169,7 +3170,9 @@
     const card = $("#result-overlay .result-card");
     const stats = $("#result-stats");
     card.classList.toggle("is-challenge", !!challenge);
-    if (challenge) {
+    if (careerFlight) {
+      showCareerResult(card, stats);
+    } else if (challenge) {
       showChallengeResult(card, stats);
     } else if (sim.state === "crashed") {
       card.classList.add("is-crash");
@@ -3422,6 +3425,7 @@
   // Regular flights use the start-screen settings; challenges bring their own.
   function useSettings() {
     challenge = null;
+    careerFlight = null;
     applyAircraft(settings.aircraft);
     applyRoute(settings.route);
     syncRun();
@@ -3438,7 +3442,7 @@
   }
   function startFlight(nextMode = mode) {
     mode = MODES[nextMode] ? nextMode : "flight";
-    if (!challenge) syncRun();
+    if (!challenge && !careerFlight) syncRun();
     replay.active = false;
     game.classList.remove("is-replay");
     $("#replay-bar").hidden = true;
@@ -3452,6 +3456,11 @@
     fcuOpen = false;
     updateCamera(10);
     $("#restart-button").textContent = challenge ? "RESTART CHALLENGE" : MODES[mode].restart;
+    // Career flights are paid once: no restarts, and leaving early goes back to the hub.
+    $("#restart-button").hidden = !!careerFlight;
+    $("#again-button").hidden = !!careerFlight;
+    $("#menu-button").textContent = careerFlight ? "ABANDON FLIGHT" : "MAIN MENU";
+    $("#result-menu-button").textContent = careerFlight ? "CONTINUE" : "MAIN MENU";
     $("#start-overlay").hidden = true;
     $("#pause-overlay").hidden = true;
     $("#result-overlay").hidden = true;
@@ -3472,6 +3481,8 @@
     $("#result-overlay").hidden = true;
     $("#challenge-overlay").hidden = true;
     $("#load-overlay").hidden = true;
+    $("#home-overlay").hidden = true;
+    $("#career-overlay").hidden = true;
     $("#start-overlay").hidden = false;
     game.classList.remove("is-started");
     wake.release();
@@ -3592,8 +3603,8 @@
   $("#resume-button").addEventListener("click", () => setPaused(false));
   $("#restart-button").addEventListener("click", () => startFlight());
   $("#again-button").addEventListener("click", () => startFlight());
-  $("#menu-button").addEventListener("click", showMenu);
-  $("#result-menu-button").addEventListener("click", showMenu);
+  $("#menu-button").addEventListener("click", () => (careerFlight ? abandonCareerFlight() : showMenu()));
+  $("#result-menu-button").addEventListener("click", () => (careerFlight ? showCareer() : showMenu()));
   for (const card of document.querySelectorAll(".mode-card")) card.addEventListener("click", () => openLoadSheet(card.dataset.mode));
   $("#challenge-button").addEventListener("click", () => {
     updateChallengeMenu();
@@ -3606,7 +3617,9 @@
   // A livery is a paint layer the size of the type's sprite canvas. It is multiplied onto the art, so panel lines,
   // windows and shading show through, and clipped to the aircraft's own pixels. Each type keeps its own, in the browser.
   // The editor shows the art mirrored, nose right, exactly as it flies; text is drawn mirrored into the layer to match.
-  const liveryKey = (type) => `bbfs2d.livery.${type.id}`;
+  // Free flight and career keep separate sets of liveries; the scope picks which set is loaded and edited.
+  let liveryScope = "free";
+  const liveryKey = (type) => (liveryScope === "career" ? `bbfs2d.career.livery.${type.id}` : `bbfs2d.livery.${type.id}`);
   const imageReady = (image) => (image.complete && image.naturalWidth ? Promise.resolve() : image.decode());
   function newLayer(type) {
     const layer = document.createElement("canvas");
@@ -3630,19 +3643,31 @@
     type.painted = layer ? { gearUp: paintSprite(type.images.gearUp, layer), gearDown: paintSprite(type.images.gearDown, layer) } : null;
     type.paintedUrl = layer ? type.painted.gearDown.toDataURL() : null;
   }
-  for (const type of Object.values(AIRCRAFT)) {
-    let saved = null;
-    try { saved = localStorage.getItem(liveryKey(type)); } catch { /* storage unavailable */ }
-    if (!saved) continue;
-    const stored = new Image();
-    stored.src = saved;
-    Promise.all([stored.decode(), imageReady(type.images.gearUp), imageReady(type.images.gearDown)]).then(() => {
-      const layer = newLayer(type);
-      layer.getContext("2d").drawImage(stored, 0, 0);
-      applyLivery(type, layer);
-      if (type === aircraft) updateMenu();
-    }).catch(() => { /* a broken save just means no livery */ });
+  function loadLiveries() {
+    const scope = liveryScope;
+    for (const type of Object.values(AIRCRAFT)) {
+      applyLivery(type, null);
+      let saved = null;
+      try { saved = localStorage.getItem(liveryKey(type)); } catch { /* storage unavailable */ }
+      if (!saved) continue;
+      const stored = new Image();
+      stored.src = saved;
+      Promise.all([stored.decode(), imageReady(type.images.gearUp), imageReady(type.images.gearDown)]).then(() => {
+        if (liveryScope !== scope) return;
+        const layer = newLayer(type);
+        layer.getContext("2d").drawImage(stored, 0, 0);
+        applyLivery(type, layer);
+        updateMenu();
+        if (!$("#career-overlay").hidden) renderCareer();
+      }).catch(() => { /* a broken save just means no livery */ });
+    }
   }
+  function setLiveryScope(scope) {
+    if (scope === liveryScope) return;
+    liveryScope = scope;
+    loadLiveries();
+  }
+  loadLiveries();
 
   const LIVERY_COLORS = ["#c8102e", "#f26b1d", "#f6c21c", "#b6d433", "#1e8a4c", "#4fb3e8", "#1f6fd1", "#0b2a5b", "#6b3fa0", "#e84d8a", "#8a9196", "#161616", "#ffffff"];
   const LIVERY_HINTS = {
@@ -3669,7 +3694,7 @@
       liveryCanvas.width = type.art.width * 2;
       liveryCanvas.height = type.art.height * 2;
       liveryCanvas.style.setProperty("--aspect", type.art.width / type.art.height);
-      $("#livery-title").textContent = type.name;
+      $("#livery-title").textContent = liveryScope === "career" && career ? `${career.name} · ${type.name}` : type.name;
       setLiveryTool(editor.tool);
       if (hint) $("#livery-hint").textContent = hint;
       renderLivery();
@@ -3695,6 +3720,9 @@
     editor.layer = null;
     $("#livery-overlay").hidden = true;
     updateMenu();
+    const done = editor.onDone;
+    editor.onDone = null;
+    done?.();
   }
 
   // ---------- livery codes ----------
@@ -3983,6 +4011,247 @@
     useLiveryCode(input.value, "the code").then(() => { input.value = ""; }, (err) => { $("#livery-hint").textContent = err.message; });
   });
   $("#livery-done").addEventListener("click", closeLivery);
+
+  // ---------- career ----------
+  // Found an airline, paint its first 737, then fly paid offers: tickets scale with the landing score; fuel, upkeep
+  // and repairs cost money; reputation decides how many passengers turn up. Earnings buy bigger aircraft.
+  const CAREER_TYPES = {
+    b733: { price: 60000, upkeep: 3000, minRunway: 1600 },
+    b722: { price: 70000, upkeep: 5000, minRunway: 1800 },
+    a320: { price: 90000, upkeep: 4000, minRunway: 1800 },
+    a343: { price: 220000, upkeep: 10000, minRunway: 2500 },
+    b744: { price: 320000, upkeep: 14000, minRunway: 2600 },
+  };
+  const FUEL_PRICE = 1; // $ per kg
+  const fare = (km) => 90 + 0.9 * km;
+  const money = (value) => `${value < 0 ? "−" : ""}$${Math.abs(Math.round(value)).toLocaleString("en-US")}`;
+  let career = null;
+  let careerFlight = null;
+  try { career = JSON.parse(localStorage.getItem("bbfs2d.career") || "null"); } catch { career = null; }
+  const saveCareer = () => { try { localStorage.setItem("bbfs2d.career", JSON.stringify(career)); } catch { /* storage unavailable */ } };
+  const canUse = (typeId, routeIndex) => {
+    const def = ROUTES[routeIndex];
+    return Math.min(def.from[2], def.to[2]) >= CAREER_TYPES[typeId].minRunway;
+  };
+  // Four offers, fixed until the next flight: route, passengers waiting (more with a better reputation), conditions.
+  function careerOffers() {
+    const roll = (i, j) => hash2(career.seed + i * 13.7, j * 3.1);
+    const offers = [];
+    for (let i = 0; offers.length < 4 && i < 40; i += 1) {
+      const routeIndex = Math.floor(roll(i, 1) * ROUTES.length);
+      if (offers.some((offer) => offer.route === routeIndex)) continue;
+      const weather = roll(i, 2) < 0.4 ? "clear" : roll(i, 2) < 0.75 ? "cloudy" : roll(i, 2) < 0.9 ? "storm" : "fog";
+      const time = roll(i, 3) < 0.55 ? "day" : roll(i, 3) < 0.8 ? "dusk" : "night";
+      const pax = Math.round((80 + roll(i, 4) * 260) * (0.6 + 0.4 * career.reputation / 100));
+      offers.push({ route: routeIndex, weather, time, pax });
+    }
+    return offers;
+  }
+  function careerFuel(type, routeIndex, pax) {
+    const km = ROUTES[routeIndex].distance / 1000;
+    const trip = type.climbFuel + type.burnPerKm * km;
+    return { trip, load: Math.min(type.maxFuel, type.mtow - type.oew - pax * PAX_MASS, Math.round((trip * 1.15 + type.reserveFuel) / 100) * 100) };
+  }
+  // Profit for an offer with a given aircraft, assuming a good (80) landing.
+  function estimateProfit(offer, typeId) {
+    const type = AIRCRAFT[typeId];
+    const pax = Math.min(type.maxPax, offer.pax);
+    return pax * fare(ROUTES[offer.route].distance / 1000) * 1.1 - careerFuel(type, offer.route, pax).trip * FUEL_PRICE - CAREER_TYPES[typeId].upkeep;
+  }
+
+  function showHome() {
+    careerFlight = null;
+    for (const id of ["#start-overlay", "#career-overlay", "#found-overlay", "#result-overlay", "#pause-overlay"]) $(id).hidden = true;
+    game.classList.remove("is-started");
+    $("#home-career-status").textContent = career ? `${career.name} · ${money(career.cash)} · ${career.fleet.length} AIRCRAFT` : "START A NEW AIRLINE";
+    $("#home-overlay").hidden = false;
+  }
+  function enterFreeFlight() {
+    setLiveryScope("free");
+    $("#home-overlay").hidden = true;
+    showMenu();
+  }
+  function enterCareer() {
+    setLiveryScope("career");
+    $("#home-overlay").hidden = true;
+    if (career) showCareer();
+    else {
+      $("#airline-name").value = "";
+      $("#found-overlay").hidden = false;
+    }
+  }
+  function foundAirline() {
+    const name = $("#airline-name").value.trim().toUpperCase() || "BBFS AIR";
+    career = { name, cash: 25000, reputation: 50, fleet: ["b733"], selected: "b733", flights: 0, hours: 0, seed: Math.floor(Math.random() * 1e5), log: [] };
+    saveCareer();
+    $("#found-overlay").hidden = true;
+    paintFleetAircraft("b733", `Paint ${name}'s first 737-300. You can repaint it from the hub any time.`);
+  }
+  function paintFleetAircraft(typeId, hint) {
+    applyAircraft(typeId);
+    $("#career-overlay").hidden = true;
+    editor.onDone = showCareer;
+    openLivery(null, hint);
+  }
+  function showCareer() {
+    careerFlight = null;
+    replay.active = false;
+    game.classList.remove("is-replay", "is-started");
+    $("#replay-bar").hidden = true;
+    for (const id of ["#start-overlay", "#result-overlay", "#pause-overlay", "#home-overlay"]) $(id).hidden = true;
+    applyAircraft(career.selected);
+    resetSim();
+    renderCareer();
+    $("#career-overlay").hidden = false;
+    wake.release();
+  }
+  function renderCareer() {
+    if (!career) return;
+    $("#career-name").textContent = career.name;
+    $("#career-stats").replaceChildren(...[
+      ["CASH", money(career.cash), career.cash < 0 ? "bad" : "good"],
+      ["REPUTATION", `${Math.round(career.reputation)} / 100`, career.reputation >= 60 ? "good" : career.reputation >= 35 ? "meh" : "bad"],
+      ["FLIGHTS", String(career.flights), ""],
+      ["HOURS", `${Math.floor(career.hours)}:${String(Math.floor((career.hours % 1) * 60)).padStart(2, "0")}`, ""],
+    ].map(statRow));
+    $("#career-fleet").replaceChildren(...Object.keys(CAREER_TYPES).map((id) => {
+      const type = AIRCRAFT[id];
+      const owned = career.fleet.includes(id);
+      const card = document.createElement("div");
+      card.className = `fleet-card${owned ? " is-owned" : ""}${career.selected === id ? " is-selected" : ""}`;
+      card.innerHTML = `<img alt="" /><b></b><small></small><div class="fleet-actions"></div>`;
+      card.querySelector("img").src = owned ? type.paintedUrl || type.sprites.gearDown : type.sprites.gearDown;
+      card.querySelector("b").textContent = type.name;
+      card.querySelector("small").textContent = owned ? (career.selected === id ? "FLYING THIS" : "IN YOUR FLEET") : `${money(CAREER_TYPES[id].price)} · ${type.maxPax} SEATS`;
+      const actions = card.querySelector(".fleet-actions");
+      const button = (label, onClick, disabled = false) => {
+        const b = document.createElement("button");
+        b.className = "tool-button";
+        b.textContent = label;
+        b.disabled = disabled;
+        b.addEventListener("click", onClick);
+        actions.append(b);
+      };
+      if (owned) {
+        if (career.selected !== id) button("FLY THIS", () => { career.selected = id; saveCareer(); applyAircraft(id); renderCareer(); });
+        button("PAINT", () => paintFleetAircraft(id, `Repaint your ${type.name} in ${career.name} colours.`));
+      } else {
+        button("BUY", () => {
+          career.cash -= CAREER_TYPES[id].price;
+          career.fleet.push(id);
+          career.selected = id;
+          saveCareer();
+          paintFleetAircraft(id, `Your new ${type.name}! Paint it in ${career.name} colours.`);
+        }, career.cash < CAREER_TYPES[id].price);
+      }
+      return card;
+    }));
+    const selected = AIRCRAFT[career.selected];
+    $("#career-offers").replaceChildren(...careerOffers().map((offer) => {
+      const def = ROUTES[offer.route];
+      const usable = canUse(career.selected, offer.route);
+      const card = document.createElement("button");
+      card.className = "offer-card";
+      card.disabled = !usable;
+      card.innerHTML = `<b></b><span></span><small></small><em></em>`;
+      card.querySelector("b").textContent = `${placeName(def.from[0])} → ${placeName(def.to[0])}`;
+      card.querySelector("span").textContent = `${Math.round(def.distance / 1000)} KM · ${offer.pax} PAX WAITING · ${WEATHER[offer.weather].label} · ${TIMES[offer.time].label}`;
+      card.querySelector("small").textContent = usable
+        ? `${selected.name} carries ${Math.min(offer.pax, selected.maxPax)}`
+        : `Runway too short for the ${selected.name} (needs ${CAREER_TYPES[career.selected].minRunway.toLocaleString("en-US")} m)`;
+      card.querySelector("em").textContent = usable ? `EST. ${money(estimateProfit(offer, career.selected))}` : "—";
+      card.addEventListener("click", () => flyOffer(offer));
+      return card;
+    }));
+    $("#career-log").replaceChildren(...(career.log.length ? career.log : [{ text: "No flights yet. Pick an offer above." }]).map((entry) => {
+      const row = document.createElement("li");
+      row.textContent = entry.text;
+      if (entry.net !== undefined) {
+        const value = document.createElement("b");
+        value.textContent = money(entry.net);
+        value.className = entry.net >= 0 ? "good" : "bad";
+        row.append(value);
+      }
+      return row;
+    }));
+  }
+  function flyOffer(offer) {
+    const type = AIRCRAFT[career.selected];
+    const pax = Math.min(type.maxPax, offer.pax);
+    challenge = null;
+    applyAircraft(type.id);
+    applyRoute(offer.route);
+    Object.assign(run, { weather: offer.weather, time: offer.time });
+    cloudCache.clear();
+    careerFlight = { offer, typeId: type.id, load: { pax, fuel: careerFuel(type, offer.route, pax).load } };
+    $("#career-overlay").hidden = true;
+    startFlight("flight");
+  }
+  // Settles the flight: tickets (scaled by the landing score) minus fuel, upkeep and any repairs.
+  function showCareerResult(card, stats) {
+    const flight = careerFlight;
+    const prices = CAREER_TYPES[flight.typeId];
+    const crashed = sim.state === "crashed";
+    const arrived = !crashed && sim.state === "landed" && sim.touchdown?.runway === route.to;
+    const report = arrived ? landingReport() : null;
+    const tickets = arrived ? Math.round(sim.pax * fare(route.distance / 1000) * (0.7 + 0.5 * report.score / 100)) : 0;
+    const fuel = Math.round((sim.startFuel - sim.fuel) * FUEL_PRICE);
+    const repairs = crashed ? Math.round(prices.price * 0.25) : 0;
+    const net = tickets - fuel - prices.upkeep - repairs;
+    const reputation = crashed ? -15 : arrived ? clamp((report.score - 60) / 6, -5, 5) : -3;
+    career.cash += net;
+    career.reputation = clamp(career.reputation + reputation, 0, 100);
+    career.flights += 1;
+    career.hours += sim.time / 3600;
+    career.seed += 1;
+    const label = `${placeName(route.from.code)} → ${placeName(route.to.code)}`;
+    career.log.unshift({ text: `${AIRCRAFT[flight.typeId].name} · ${label} · ${crashed ? sim.crash.title : arrived ? `${report.score}/100` : "NO REVENUE"}`, net });
+    career.log.length = Math.min(career.log.length, 8);
+    saveCareer();
+    card.classList.toggle("is-crash", !arrived);
+    $("#result-kicker").textContent = `CAREER · ${career.name}`;
+    $("#result-title").textContent = crashed ? sim.crash.title : arrived ? report.grade : "NO REVENUE";
+    $("#result-copy").textContent = crashed ? `${sim.crash.copy} Repairs cost ${money(repairs)}.`
+      : arrived ? `${report.copy} ${sim.pax} passengers to ${route.to.name}.`
+      : `The flight didn't end at ${route.to.name}, so no tickets were paid.`;
+    stats.replaceChildren(...[
+      ["TICKETS", `${money(tickets)}${arrived ? ` · ${report.score}/100` : ""}`, tickets ? "good" : ""],
+      ["FUEL", money(-fuel), ""],
+      ["UPKEEP", money(-prices.upkeep), ""],
+      ["REPAIRS", money(-repairs), repairs ? "bad" : ""],
+      ["NET", money(net), net >= 0 ? "good" : "bad"],
+      ["CASH", money(career.cash), career.cash >= 0 ? "good" : "bad"],
+      ["REPUTATION", `${Math.round(career.reputation)} (${reputation >= 0 ? "+" : "−"}${Math.abs(Math.round(reputation))})`, reputation >= 0 ? "good" : "bad"],
+      ["FLIGHT TIME", clock(sim.time), ""],
+    ].map(statRow));
+  }
+  // Leaving a flight early still pays the crew and upkeep.
+  function abandonCareerFlight() {
+    const upkeep = CAREER_TYPES[careerFlight.typeId].upkeep;
+    career.cash -= upkeep;
+    career.log.unshift({ text: `${AIRCRAFT[careerFlight.typeId].name} · flight abandoned`, net: -upkeep });
+    career.log.length = Math.min(career.log.length, 8);
+    saveCareer();
+    showCareer();
+  }
+  function resetCareer() {
+    if (!window.confirm(`Close ${career.name}? Your cash, fleet and career liveries will be deleted.`)) return;
+    try {
+      localStorage.removeItem("bbfs2d.career");
+      for (const id of Object.keys(AIRCRAFT)) localStorage.removeItem(`bbfs2d.career.livery.${id}`);
+    } catch { /* storage unavailable */ }
+    career = null;
+    loadLiveries();
+    showHome();
+  }
+  $("#home-free").addEventListener("click", enterFreeFlight);
+  $("#home-career").addEventListener("click", enterCareer);
+  $("#start-home").addEventListener("click", showHome);
+  $("#career-home").addEventListener("click", showHome);
+  $("#career-reset").addEventListener("click", resetCareer);
+  $("#found-back").addEventListener("click", showHome);
+  $("#found-go").addEventListener("click", foundAirline);
+  $("#airline-name").addEventListener("keydown", (event) => { if (event.key === "Enter") foundAirline(); });
 
   // Load sheet: passengers and fuel set the weight, which sets the speeds and the performance.
   let loadMode = "flight";
@@ -4286,6 +4555,7 @@
   showBest();
   updateMenu();
   showControlSettings();
+  showHome();
   requestAnimationFrame(frame);
   // A shared #livery= link selects that aircraft and opens the editor on the livery.
   if (location.hash.startsWith("#livery=")) {
@@ -4301,6 +4571,7 @@
     getMode: () => mode,
     vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, dailyChallenge, liveryCode, readLiveryCode, useSettings, terrainAhead, themeAt, mountainsAt,
     setLoad: (load) => setLoad(load),
+    setupFinal, showHome, showResult, getCareer: () => career,
     getChallenge: () => challenge,
     renderFrame: () => { updateCamera(0.016); render(); drawVD(); updateHud(); },
     get route() { return route; },
