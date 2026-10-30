@@ -74,9 +74,12 @@ The game opens on a choice of two modes. **FREE FLIGHT** is everything below: an
 
 **CAREER** runs an airline:
 
-- **Found it:** name your airline, then paint its first aircraft, a 737-300. You start with $25,000 and a reputation of 50.
+- **Found it:** name your airline, pick its home hub (any of the 12 airports; Heathrow has the most routes), then paint its first aircraft, a 737-300. You start with $25,000 and a reputation of 50.
+- **Hubs:** offers only come from routes that start or end at one of your hubs. Open more hubs from the hub list ($40k at Gibraltar up to $150k at Heathrow) to reach new parts of the network. Flights between two of your hubs draw 30% more passengers.
 - **Fly offers:** the hub lists four flight offers: route, passengers waiting, weather and time of day, with the estimated profit for the aircraft you've picked. Each one is a full flight, runway to runway. Heavy jets can't use short runways (the A340 and 747 need 2,500 m or more, which rules out places like Gibraltar and Innsbruck).
-- **Get paid:** tickets are passengers × a fare that grows with distance, scaled by your landing score (0.7× for a 0 up to 1.2× for a 100). Fuel and upkeep come off. A crash costs repairs (a quarter of the aircraft's price) and 15 reputation; landing somewhere else pays nothing; abandoning a flight still costs the upkeep. There are no restarts.
+- **Ticket prices:** **ECONOMY** (0.75× price, 1.3× passengers), **STANDARD**, or **PREMIUM** (1.45× price, 0.75× passengers, and a landing under 75 costs an extra 5 reputation). The choice applies to the next flight and the offer estimates update with it.
+- **Loans:** the **BANK** lends $50,000 at a time for a flat 15% fee ($57,500 to repay), up to $100,000 plus 60% of your fleet's value. A tenth of the debt comes off after every flight, crash or abandoned flight included; **PAY OFF** clears it early when you have the cash.
+- **Get paid:** tickets are passengers × a fare that grows with distance, scaled by your fare level and your landing score (0.7× for a 0 up to 1.2× for a 100). Fuel and upkeep come off. A crash costs repairs (a quarter of the aircraft's price) and 15 reputation; landing somewhere else pays nothing; abandoning a flight still costs the upkeep. There are no restarts.
 - **Reputation** (0–100) rises with good landings and falls with bad ones, and decides how many passengers turn up.
 - **Grow the fleet:** buy the 727-200 ($70k), A320 ($90k), A340-300 ($220k) or 747-400 ($320k), and paint each one when it arrives. Pick which aircraft to fly in the fleet list.
 
@@ -114,6 +117,8 @@ Pick the route on the start screen. Runway lengths and airport elevations are re
 | Munich → Innsbruck | EDDM 26L → LOWI 26 | 125 km | FL120 | ~21 min |
 | Barcelona → Palma | LEBL 07L → LEPA 24L | 203 km | FL150 | ~30 min |
 | Málaga → Gibraltar | LEMG 13 → LXGB 27 | 100 km | 7,000 ft | ~18 min |
+
+Every route also flies the other way (Bristol → Heathrow, Palma → Barcelona and so on): the terrain is mirrored and each airport uses the opposite end of its runway, so Heathrow 27R becomes 09L.
 
 Each route has a real terrain profile you can fly into:
 

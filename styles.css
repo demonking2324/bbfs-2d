@@ -470,7 +470,6 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .home-link:hover, .home-link:focus-visible { color: var(--lime); border-color: var(--lime); }
 
 /* ---------- career ---------- */
-.found-card { width: min(440px, 100%); }
 .found-card .menu-title { color: var(--amber); }
 .found-field { display: grid; gap: 6px; }
 .found-field span { color: var(--muted); font: 10px var(--mono); letter-spacing: .1em; }
@@ -517,4 +516,29 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
   .career-fleet { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .career-offers { grid-template-columns: 1fr; }
   .home-link { position: static; justify-self: start; }
+}
+.found-card { width: min(620px, 100%); }
+.hub-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hub-chip { display: grid; gap: 2px; padding: 7px 9px; text-align: left; cursor: pointer; background: #1a2427; border: 1px solid #344346; }
+.hub-chip b { font: 700 14px/1.05 var(--display); letter-spacing: .04em; }
+.hub-chip small { color: var(--muted); font: 8px var(--mono); }
+.hub-chip:hover:not(:disabled), .hub-chip:focus-visible { border-color: var(--amber); }
+.hub-chip:disabled { cursor: default; }
+.hub-chip:disabled:not(.is-owned) { opacity: .45; }
+.hub-chip[aria-pressed="true"], .hub-chip.is-owned { border-color: var(--amber); box-shadow: inset 0 -3px 0 var(--amber); }
+.hub-chip[aria-pressed="true"] small, .hub-chip.is-owned small { color: var(--amber); }
+.fare-row { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; }
+.fare-buttons { display: grid; grid-template-columns: repeat(3, auto); gap: 6px; }
+.fare-buttons .tool-button { padding: 0 12px; }
+.fare-buttons .tool-button[aria-pressed="true"] { color: var(--amber); border-color: var(--amber); box-shadow: inset 0 -3px 0 var(--amber); }
+.fare-note { color: var(--muted); font: 10px/1.35 var(--mono); }
+.bank-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; }
+.bank-row span { color: #c2cac2; font: 10px/1.4 var(--mono); }
+.bank-row .tool-button { padding: 0 12px; }
+.bank-row .tool-button:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .hub-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fare-row { grid-template-columns: 1fr; }
+  .bank-row { grid-template-columns: 1fr 1fr; }
+  .bank-row span { grid-column: 1 / -1; }
 }

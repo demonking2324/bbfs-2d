@@ -398,6 +398,26 @@
       terrain: [[-16, 40, "city"], [-3, 15, "farm"], [4, 0, "sea"], [104.5, 30, "hills", 0.5]],
     },
   ];
+  // Every route also flies the other way (indices after the originals, so challenges keep theirs): the terrain is
+  // mirrored about the far end of the arrival runway and each airport uses the reciprocal runway.
+  // A terrain point's theme covers the stretch after it, so mirrored points take the theme of the stretch before.
+  const reciprocal = (designator) => {
+    const [, number, side] = /^(\d+)([LRC]?)$/.exec(designator);
+    return `${String(((Number(number) + 17) % 36) + 1).padStart(2, "0")}${{ L: "R", R: "L" }[side] ?? side}`;
+  };
+  for (const def of ROUTES.slice()) {
+    const [fromCode, fromRunway, fromLength] = def.from;
+    const [toCode, toRunway, toLength] = def.to;
+    const mirror = (def.distance + toLength) / 1000;
+    const points = def.terrain;
+    const terrain = points.map(([x, elev, , mountains = 0], i) => [mirror - x, elev, i ? points[i - 1][2] : "farm", mountains]);
+    const [lastX, lastElev, lastTheme, lastMountains = 0] = points[points.length - 1];
+    terrain.push([mirror - lastX - 20, lastElev, lastTheme, lastMountains]);
+    ROUTES.push({
+      from: [toCode, reciprocal(toRunway), toLength], to: [fromCode, reciprocal(fromRunway), fromLength],
+      distance: def.distance + toLength - fromLength, cruiseFt: def.cruiseFt, decel: def.decel, terrain: terrain.sort((a, b) => a[0] - b[0]),
+    });
+  }
   const START_X = 70;
   const TAN_GS = Math.tan(3 * DEG);
   let route;
@@ -4013,8 +4033,9 @@
   $("#livery-done").addEventListener("click", closeLivery);
 
   // ---------- career ----------
-  // Found an airline, paint its first 737, then fly paid offers: tickets scale with the landing score; fuel, upkeep
-  // and repairs cost money; reputation decides how many passengers turn up. Earnings buy bigger aircraft.
+  // Found an airline at a home hub, paint its first 737, then fly paid offers on routes touching your hubs: tickets
+  // scale with the fare level and the landing score; fuel, upkeep, repairs and loan payments cost money; reputation
+  // decides how many passengers turn up. Earnings (or loans) buy bigger aircraft and new hubs.
   const CAREER_TYPES = {
     b733: { price: 60000, upkeep: 3000, minRunway: 1600 },
     b722: { price: 70000, upkeep: 5000, minRunway: 1800 },
@@ -4024,29 +4045,52 @@
   };
   const FUEL_PRICE = 1; // $ per kg
   const fare = (km) => 90 + 0.9 * km;
+  // Fare levels: ticket price and passenger demand multipliers. Premium passengers expect a landing of 75 or better.
+  const FARES = {
+    economy: { label: "ECONOMY", price: 0.75, demand: 1.3, note: "Cheaper tickets fill more seats" },
+    standard: { label: "STANDARD", price: 1, demand: 1, note: "The usual price" },
+    premium: { label: "PREMIUM", price: 1.45, demand: 0.75, note: "Pays more, but land 75+ or lose 5 reputation" },
+  };
+  const PREMIUM_SCORE = 75;
+  const HUB_PRICES = { EGLL: 150000, EHAM: 120000, EDDM: 110000, LEBL: 110000, EGCC: 90000, LEMG: 80000, LEPA: 80000, EGPH: 70000, EGPF: 70000, EGGD: 50000, LOWI: 50000, LXGB: 40000 };
+  const HUB_BONUS = 1.3; // more passengers when both ends are your hubs
+  // Loans: borrow in steps, repaid automatically over ten flights with a flat 15% fee.
+  const LOAN_STEP = 50000;
+  const LOAN_FEE = 1.15;
+  const LOAN_FLIGHTS = 10;
   const money = (value) => `${value < 0 ? "−" : ""}$${Math.abs(Math.round(value)).toLocaleString("en-US")}`;
   let career = null;
   let careerFlight = null;
   try { career = JSON.parse(localStorage.getItem("bbfs2d.career") || "null"); } catch { career = null; }
+  // Airlines founded before hubs, fares and loans start at Heathrow on standard fares with no debt.
+  if (career) career = { hubs: ["EGLL"], fareLevel: "standard", debt: 0, loanPayment: 0, ...career };
+  if (career) career.debt = Math.round(career.debt);
   const saveCareer = () => { try { localStorage.setItem("bbfs2d.career", JSON.stringify(career)); } catch { /* storage unavailable */ } };
   const canUse = (typeId, routeIndex) => {
     const def = ROUTES[routeIndex];
     return Math.min(def.from[2], def.to[2]) >= CAREER_TYPES[typeId].minRunway;
   };
-  // Four offers, fixed until the next flight: route, passengers waiting (more with a better reputation), conditions.
+  const hubCount = (def) => [def.from[0], def.to[0]].filter((code) => career.hubs.includes(code)).length;
+  const routesAt = (code) => ROUTES.filter((def) => def.from[0] === code || def.to[0] === code).length;
+  const maxDebt = () => 100000 + 0.6 * career.fleet.reduce((sum, id) => sum + CAREER_TYPES[id].price, 0);
+  // Four offers on routes touching your hubs, fixed until the next flight: route, passengers waiting (more with a
+  // better reputation and between two hubs), conditions. A route repeats only when your hubs have too few.
   function careerOffers() {
     const roll = (i, j) => hash2(career.seed + i * 13.7, j * 3.1);
+    const eligible = ROUTES.map((_, i) => i).filter((i) => hubCount(ROUTES[i]));
     const offers = [];
-    for (let i = 0; offers.length < 4 && i < 40; i += 1) {
-      const routeIndex = Math.floor(roll(i, 1) * ROUTES.length);
-      if (offers.some((offer) => offer.route === routeIndex)) continue;
+    for (let i = 0; offers.length < 4 && i < 60; i += 1) {
+      const routeIndex = eligible[Math.floor(roll(i, 1) * eligible.length)];
+      if (i < 40 && offers.some((offer) => offer.route === routeIndex) && eligible.length >= 4) continue;
       const weather = roll(i, 2) < 0.4 ? "clear" : roll(i, 2) < 0.75 ? "cloudy" : roll(i, 2) < 0.9 ? "storm" : "fog";
       const time = roll(i, 3) < 0.55 ? "day" : roll(i, 3) < 0.8 ? "dusk" : "night";
-      const pax = Math.round((80 + roll(i, 4) * 260) * (0.6 + 0.4 * career.reputation / 100));
-      offers.push({ route: routeIndex, weather, time, pax });
+      const hubs = hubCount(ROUTES[routeIndex]) === 2 ? HUB_BONUS : 1;
+      const pax = Math.round((80 + roll(i, 4) * 260) * (0.6 + 0.4 * career.reputation / 100) * hubs);
+      offers.push({ route: routeIndex, weather, time, pax, hubs: hubs > 1 });
     }
     return offers;
   }
+  const passengers = (offer, type) => Math.min(type.maxPax, Math.round(offer.pax * FARES[career.fareLevel].demand));
   function careerFuel(type, routeIndex, pax) {
     const km = ROUTES[routeIndex].distance / 1000;
     const trip = type.climbFuel + type.burnPerKm * km;
@@ -4055,8 +4099,16 @@
   // Profit for an offer with a given aircraft, assuming a good (80) landing.
   function estimateProfit(offer, typeId) {
     const type = AIRCRAFT[typeId];
-    const pax = Math.min(type.maxPax, offer.pax);
-    return pax * fare(ROUTES[offer.route].distance / 1000) * 1.1 - careerFuel(type, offer.route, pax).trip * FUEL_PRICE - CAREER_TYPES[typeId].upkeep;
+    const pax = passengers(offer, type);
+    return pax * fare(ROUTES[offer.route].distance / 1000) * FARES[career.fareLevel].price * 1.1 - careerFuel(type, offer.route, pax).trip * FUEL_PRICE - CAREER_TYPES[typeId].upkeep;
+  }
+  // The loan instalment comes off after every flight, finished or not.
+  function payLoan() {
+    const paid = Math.min(career.debt, career.loanPayment);
+    career.debt -= paid;
+    career.cash -= paid;
+    if (!career.debt) career.loanPayment = 0;
+    return paid;
   }
 
   function showHome() {
@@ -4077,12 +4129,30 @@
     if (career) showCareer();
     else {
       $("#airline-name").value = "";
+      foundHub = "EGLL";
+      renderFoundHubs();
       $("#found-overlay").hidden = false;
     }
   }
+  let foundHub = "EGLL";
+  function renderFoundHubs() {
+    $("#found-hubs").replaceChildren(...Object.keys(AIRPORTS).map((code) => {
+      const button = document.createElement("button");
+      button.className = "hub-chip";
+      button.setAttribute("aria-pressed", String(code === foundHub));
+      button.innerHTML = "<b></b><small></small>";
+      button.querySelector("b").textContent = placeName(code);
+      button.querySelector("small").textContent = `${routesAt(code)} ROUTES`;
+      button.addEventListener("click", () => { foundHub = code; renderFoundHubs(); });
+      return button;
+    }));
+  }
   function foundAirline() {
     const name = $("#airline-name").value.trim().toUpperCase() || "BBFS AIR";
-    career = { name, cash: 25000, reputation: 50, fleet: ["b733"], selected: "b733", flights: 0, hours: 0, seed: Math.floor(Math.random() * 1e5), log: [] };
+    career = {
+      name, cash: 25000, reputation: 50, fleet: ["b733"], selected: "b733", flights: 0, hours: 0, seed: Math.floor(Math.random() * 1e5), log: [],
+      hubs: [foundHub], fareLevel: "standard", debt: 0, loanPayment: 0,
+    };
     saveCareer();
     $("#found-overlay").hidden = true;
     paintFleetAircraft("b733", `Paint ${name}'s first 737-300. You can repaint it from the hub any time.`);
@@ -4114,6 +4184,10 @@
       ["FLIGHTS", String(career.flights), ""],
       ["HOURS", `${Math.floor(career.hours)}:${String(Math.floor((career.hours % 1) * 60)).padStart(2, "0")}`, ""],
     ].map(statRow));
+    renderCareerHubs();
+    renderCareerBank();
+    for (const button of document.querySelectorAll("[data-fare]")) button.setAttribute("aria-pressed", String(button.dataset.fare === career.fareLevel));
+    $("#fare-note").textContent = FARES[career.fareLevel].note;
     $("#career-fleet").replaceChildren(...Object.keys(CAREER_TYPES).map((id) => {
       const type = AIRCRAFT[id];
       const owned = career.fleet.includes(id);
@@ -4155,9 +4229,9 @@
       card.disabled = !usable;
       card.innerHTML = `<b></b><span></span><small></small><em></em>`;
       card.querySelector("b").textContent = `${placeName(def.from[0])} → ${placeName(def.to[0])}`;
-      card.querySelector("span").textContent = `${Math.round(def.distance / 1000)} KM · ${offer.pax} PAX WAITING · ${WEATHER[offer.weather].label} · ${TIMES[offer.time].label}`;
+      card.querySelector("span").textContent = `${Math.round(def.distance / 1000)} KM · ${offer.pax} PAX WAITING${offer.hubs ? " (HUB TO HUB)" : ""} · ${WEATHER[offer.weather].label} · ${TIMES[offer.time].label}`;
       card.querySelector("small").textContent = usable
-        ? `${selected.name} carries ${Math.min(offer.pax, selected.maxPax)}`
+        ? `${selected.name} carries ${passengers(offer, selected)} on ${FARES[career.fareLevel].label.toLowerCase()} fares`
         : `Runway too short for the ${selected.name} (needs ${CAREER_TYPES[career.selected].minRunway.toLocaleString("en-US")} m)`;
       card.querySelector("em").textContent = usable ? `EST. ${money(estimateProfit(offer, career.selected))}` : "—";
       card.addEventListener("click", () => flyOffer(offer));
@@ -4175,15 +4249,61 @@
       return row;
     }));
   }
+  function renderCareerHubs() {
+    $("#career-hubs").replaceChildren(...Object.keys(AIRPORTS).map((code) => {
+      const owned = career.hubs.includes(code);
+      const button = document.createElement("button");
+      button.className = `hub-chip${owned ? " is-owned" : ""}`;
+      button.innerHTML = "<b></b><small></small>";
+      button.querySelector("b").textContent = placeName(code);
+      button.querySelector("small").textContent = owned ? `YOUR HUB · ${routesAt(code)} ROUTES` : `OPEN ${money(HUB_PRICES[code])} · ${routesAt(code)} ROUTES`;
+      button.disabled = owned || career.cash < HUB_PRICES[code];
+      button.addEventListener("click", () => {
+        if (!window.confirm(`Open a hub at ${AIRPORTS[code].name} for ${money(HUB_PRICES[code])}? Its routes join your offers.`)) return;
+        career.cash -= HUB_PRICES[code];
+        career.hubs.push(code);
+        career.seed += 1;
+        saveCareer();
+        renderCareer();
+      });
+      return button;
+    }));
+  }
+  function renderCareerBank() {
+    const room = Math.max(0, maxDebt() - career.debt);
+    $("#bank-status").textContent = career.debt
+      ? `You owe ${money(career.debt)}. ${money(Math.min(career.debt, career.loanPayment))} comes off after every flight.`
+      : `No debt. You can borrow up to ${money(maxDebt())} (more as your fleet grows). Each ${money(LOAN_STEP)} costs ${money(LOAN_STEP * LOAN_FEE)}, repaid over ${LOAN_FLIGHTS} flights.`;
+    $("#bank-borrow").disabled = room < LOAN_STEP * LOAN_FEE;
+    $("#bank-borrow").textContent = `BORROW ${money(LOAN_STEP)}`;
+    $("#bank-repay").disabled = !career.debt || career.cash < career.debt;
+    $("#bank-repay").textContent = career.debt ? `PAY OFF ${money(career.debt)}` : "PAY OFF";
+  }
+  function borrow() {
+    if (maxDebt() - career.debt < LOAN_STEP * LOAN_FEE) return;
+    career.cash += LOAN_STEP;
+    career.debt += Math.round(LOAN_STEP * LOAN_FEE);
+    career.loanPayment = Math.ceil(career.debt / LOAN_FLIGHTS / 100) * 100;
+    saveCareer();
+    renderCareer();
+  }
+  function repayLoan() {
+    if (career.cash < career.debt) return;
+    career.cash -= career.debt;
+    career.debt = 0;
+    career.loanPayment = 0;
+    saveCareer();
+    renderCareer();
+  }
   function flyOffer(offer) {
     const type = AIRCRAFT[career.selected];
-    const pax = Math.min(type.maxPax, offer.pax);
+    const pax = passengers(offer, type);
     challenge = null;
     applyAircraft(type.id);
     applyRoute(offer.route);
     Object.assign(run, { weather: offer.weather, time: offer.time });
     cloudCache.clear();
-    careerFlight = { offer, typeId: type.id, load: { pax, fuel: careerFuel(type, offer.route, pax).load } };
+    careerFlight = { offer, typeId: type.id, fareLevel: career.fareLevel, load: { pax, fuel: careerFuel(type, offer.route, pax).load } };
     $("#career-overlay").hidden = true;
     startFlight("flight");
   }
@@ -4194,12 +4314,15 @@
     const crashed = sim.state === "crashed";
     const arrived = !crashed && sim.state === "landed" && sim.touchdown?.runway === route.to;
     const report = arrived ? landingReport() : null;
-    const tickets = arrived ? Math.round(sim.pax * fare(route.distance / 1000) * (0.7 + 0.5 * report.score / 100)) : 0;
+    const fares = FARES[flight.fareLevel];
+    const tickets = arrived ? Math.round(sim.pax * fare(route.distance / 1000) * fares.price * (0.7 + 0.5 * report.score / 100)) : 0;
     const fuel = Math.round((sim.startFuel - sim.fuel) * FUEL_PRICE);
     const repairs = crashed ? Math.round(prices.price * 0.25) : 0;
-    const net = tickets - fuel - prices.upkeep - repairs;
-    const reputation = crashed ? -15 : arrived ? clamp((report.score - 60) / 6, -5, 5) : -3;
-    career.cash += net;
+    const disappointed = arrived && flight.fareLevel === "premium" && report.score < PREMIUM_SCORE;
+    const reputation = (crashed ? -15 : arrived ? clamp((report.score - 60) / 6, -5, 5) : -3) - (disappointed ? 5 : 0);
+    career.cash += tickets - fuel - prices.upkeep - repairs;
+    const loan = payLoan();
+    const net = tickets - fuel - prices.upkeep - repairs - loan;
     career.reputation = clamp(career.reputation + reputation, 0, 100);
     career.flights += 1;
     career.hours += sim.time / 3600;
@@ -4212,13 +4335,14 @@
     $("#result-kicker").textContent = `CAREER · ${career.name}`;
     $("#result-title").textContent = crashed ? sim.crash.title : arrived ? report.grade : "NO REVENUE";
     $("#result-copy").textContent = crashed ? `${sim.crash.copy} Repairs cost ${money(repairs)}.`
-      : arrived ? `${report.copy} ${sim.pax} passengers to ${route.to.name}.`
+      : arrived ? `${report.copy} ${sim.pax} passengers to ${route.to.name}.${disappointed ? ` Premium passengers expected a ${PREMIUM_SCORE}+ landing: −5 reputation.` : ""}`
       : `The flight didn't end at ${route.to.name}, so no tickets were paid.`;
     stats.replaceChildren(...[
-      ["TICKETS", `${money(tickets)}${arrived ? ` · ${report.score}/100` : ""}`, tickets ? "good" : ""],
+      [`TICKETS · ${fares.label}`, `${money(tickets)}${arrived ? ` · ${report.score}/100` : ""}`, tickets ? "good" : ""],
       ["FUEL", money(-fuel), ""],
       ["UPKEEP", money(-prices.upkeep), ""],
-      ["REPAIRS", money(-repairs), repairs ? "bad" : ""],
+      ...(repairs ? [["REPAIRS", money(-repairs), "bad"]] : []),
+      ...(loan ? [["LOAN PAYMENT", money(-loan), "meh"]] : []),
       ["NET", money(net), net >= 0 ? "good" : "bad"],
       ["CASH", money(career.cash), career.cash >= 0 ? "good" : "bad"],
       ["REPUTATION", `${Math.round(career.reputation)} (${reputation >= 0 ? "+" : "−"}${Math.abs(Math.round(reputation))})`, reputation >= 0 ? "good" : "bad"],
@@ -4229,7 +4353,8 @@
   function abandonCareerFlight() {
     const upkeep = CAREER_TYPES[careerFlight.typeId].upkeep;
     career.cash -= upkeep;
-    career.log.unshift({ text: `${AIRCRAFT[careerFlight.typeId].name} · flight abandoned`, net: -upkeep });
+    const loan = payLoan();
+    career.log.unshift({ text: `${AIRCRAFT[careerFlight.typeId].name} · flight abandoned`, net: -upkeep - loan });
     career.log.length = Math.min(career.log.length, 8);
     saveCareer();
     showCareer();
@@ -4252,6 +4377,15 @@
   $("#found-back").addEventListener("click", showHome);
   $("#found-go").addEventListener("click", foundAirline);
   $("#airline-name").addEventListener("keydown", (event) => { if (event.key === "Enter") foundAirline(); });
+  for (const button of document.querySelectorAll("[data-fare]")) {
+    button.addEventListener("click", () => {
+      career.fareLevel = button.dataset.fare;
+      saveCareer();
+      renderCareer();
+    });
+  }
+  $("#bank-borrow").addEventListener("click", borrow);
+  $("#bank-repay").addEventListener("click", repayLoan);
 
   // Load sheet: passengers and fuel set the weight, which sets the speeds and the performance.
   let loadMode = "flight";

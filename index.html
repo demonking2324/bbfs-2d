@@ -161,7 +161,9 @@
           <small class="result-kicker">CAREER</small>
           <strong class="menu-title">FOUND YOUR AIRLINE</strong>
           <label class="found-field"><span>AIRLINE NAME</span><input type="text" id="airline-name" maxlength="22" placeholder="BBFS AIR" autocomplete="off" spellcheck="false" /></label>
-          <p class="load-note">You start with one 737-300 and $25,000. First, paint the 737 in your airline's colours.</p>
+          <small class="career-heading">HOME HUB</small>
+          <div class="hub-list" id="found-hubs"></div>
+          <p class="load-note">Your flights start or end at your hubs. You start with one 737-300 and $25,000. First, paint the 737 in your airline's colours.</p>
           <div class="menu-row">
             <button class="primary-button" id="found-go">PAINT YOUR 737</button>
             <button class="secondary-button" id="found-back">BACK</button>
@@ -175,8 +177,25 @@
           <dl class="result-stats career-stats" id="career-stats"></dl>
           <small class="career-heading">FLEET</small>
           <div class="career-fleet" id="career-fleet"></div>
+          <small class="career-heading">TICKET PRICES</small>
+          <div class="fare-row">
+            <div class="fare-buttons" role="group" aria-label="Ticket prices">
+              <button class="tool-button" data-fare="economy">ECONOMY</button>
+              <button class="tool-button" data-fare="standard">STANDARD</button>
+              <button class="tool-button" data-fare="premium">PREMIUM</button>
+            </div>
+            <span class="fare-note" id="fare-note"></span>
+          </div>
           <small class="career-heading">FLIGHT OFFERS</small>
           <div class="career-offers" id="career-offers"></div>
+          <small class="career-heading">HUBS</small>
+          <div class="hub-list" id="career-hubs"></div>
+          <small class="career-heading">BANK</small>
+          <div class="bank-row">
+            <span id="bank-status"></span>
+            <button class="tool-button" id="bank-borrow">BORROW</button>
+            <button class="tool-button" id="bank-repay">PAY OFF</button>
+          </div>
           <small class="career-heading">RECENT FLIGHTS</small>
           <ul class="career-log" id="career-log"></ul>
           <button class="career-reset" id="career-reset">CLOSE AIRLINE</button>
