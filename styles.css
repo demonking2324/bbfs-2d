@@ -248,11 +248,11 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 .start-brand small { color: var(--muted); font: 10px var(--mono); align-self: flex-end; padding-bottom: 4px; }
 .start-brand .brand-mark { transform: scale(1.25) skew(-22deg); }
 .start-plane { width: min(380px, 86%); height: auto; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .5)); }
-.conditions { width: 100%; display: grid; grid-template-columns: 1fr 1.25fr 1fr 0.8fr; gap: 6px; }
+.conditions { width: 100%; display: grid; grid-template-columns: 1fr 1.9fr 0.95fr 0.75fr; gap: 6px; }
 .condition { min-width: 0; padding: 6px 9px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; cursor: pointer; background: transparent; border: 1px solid #3d4b4e; text-align: left; }
 .condition:hover, .condition:focus-visible { border-color: var(--lime); }
 .condition small { color: var(--muted); font: 8px var(--mono); letter-spacing: .1em; }
-.condition b { color: var(--cyan); font: 600 14px var(--display); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.condition b { color: var(--cyan); font: 600 14px var(--display); letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .condition b::after { content: " ›"; color: var(--muted); }
 .challenge-entry { width: 100%; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 10px 14px; cursor: pointer; background: #1a2427; border: 1px solid #f2b45a; text-align: left; }
 .challenge-entry:hover, .challenge-entry:focus-visible { background: #22302f; }

@@ -430,6 +430,8 @@
     TOD_X = INTERCEPT_X - def.decel - DESCENT_LENGTH;
     TOC_X = route.from.start + 1800 + (route.cruiseAlt - route.from.elev) / Math.tan(5 * DEG);
   }
+  // Airports are shown by name, in capitals to match the rest of the interface.
+  const placeName = (code) => AIRPORTS[code].name.toUpperCase();
   const runwayAt = (x) => runways.find((runway) => x >= runway.start && x <= runway.end) || null;
   const glidepathAlt = (x) => route.to.elev + Math.max(0, (TOUCHDOWN_X - x) * TAN_GS);
   function profileAlt(x) {
@@ -2887,7 +2889,9 @@
       c.moveTo(Math.max(left, a), Y(runway.elev));
       c.lineTo(Math.min(right, b), Y(runway.elev));
       c.stroke();
-      c.fillText(runway.code, clamp(a, left + 13, right - 13), Math.min(H - 5, Y(runway.elev) + 8));
+      const name = placeName(runway.code);
+      const half = c.measureText(name).width / 2 + 2;
+      c.fillText(name, clamp(a, left + half, right - half), Math.min(H - 5, Y(runway.elev) + 8));
     }
     c.save();
     c.translate(X(sim.x), Y(sim.y));
@@ -2964,8 +2968,8 @@
     const progress = clamp((sim.x - START_X) / (TOUCHDOWN_X - START_X), 0, 1);
     hud.routeProgress.style.width = `${progress * 100}%`;
     hud.routePlane.style.left = `${progress * 100}%`;
-    setText(hud.routeFrom, route.from.code);
-    setText(hud.routeTo, route.to.code);
+    setText(hud.routeFrom, placeName(route.from.code));
+    setText(hud.routeTo, placeName(route.to.code));
     setText(hud.routeDist, km(Math.max(0, TOUCHDOWN_X - sim.x)));
     setText(hud.objective, guidance());
     const list = warnings();
@@ -3473,11 +3477,11 @@
     wake.release();
   }
   function updateMenu() {
-    const label = `${route.from.code} → ${route.to.code}`;
+    const label = `${placeName(route.from.code)} → ${placeName(route.to.code)}`;
     $("#route-label").textContent = label;
     $("#flight-title").textContent = label;
-    $("#takeoff-plan").textContent = `${route.from.code} ${route.from.runway} · CLIMB TO ${feet(TAKEOFF_GOAL_FT)} FT`;
-    $("#landing-plan").textContent = `${route.to.code} ${route.to.runway} · 9 KM FINAL, CONFIGURED`;
+    $("#takeoff-plan").textContent = `${placeName(route.from.code)} ${route.from.runway} · CLIMB TO ${feet(TAKEOFF_GOAL_FT)} FT`;
+    $("#landing-plan").textContent = `${placeName(route.to.code)} ${route.to.runway} · 9 KM FINAL, CONFIGURED`;
     $("#weather-label").textContent = WEATHER[settings.weather].label;
     $("#aircraft-label").textContent = aircraft.name;
     $("#start-plane").src = aircraft.paintedUrl || aircraft.sprites.gearDown;
@@ -3492,7 +3496,7 @@
     const airport = c.mode === "takeoff" ? def.from : def.to;
     const log = readDaily();
     const streak = dailyStreak(log, c.daily);
-    $("#daily-plan").textContent = `${AIRCRAFT[c.aircraft].name} · ${airport[0]} ${airport[1]} · ${WEATHER[c.weather].label} · ${TIMES[c.time].label}\n${c.blurb}`;
+    $("#daily-plan").textContent = `${AIRCRAFT[c.aircraft].name} · ${placeName(airport[0])} ${airport[1]} · ${WEATHER[c.weather].label} · ${TIMES[c.time].label}\n${c.blurb}`;
     $("#daily-best").textContent = `${c.daily in log ? `BEST ${log[c.daily]}` : "NOT FLOWN"}${streak > 1 ? ` · ${streak} DAYS` : ""}`;
   }
   function updateChallengeMenu() {
@@ -3508,7 +3512,7 @@
       button.querySelector(".challenge-stars").textContent = starText(readStars(c));
       button.querySelector("b").textContent = c.title;
       button.querySelector(".challenge-blurb").textContent = c.blurb;
-      button.querySelector("small").textContent = `${type.name} · ${airport[0]} ${airport[1]} · ${WEATHER[c.weather].label} · ${TIMES[c.time].label}`;
+      button.querySelector("small").textContent = `${type.name} · ${placeName(airport[0])} ${airport[1]} · ${WEATHER[c.weather].label} · ${TIMES[c.time].label}`;
       button.addEventListener("click", () => startChallenge(c));
       return button;
     }));
@@ -3993,7 +3997,9 @@
     fuelInput.step = aircraft.maxFuel > 50000 ? 500 : 100;
     paxInput.value = load.pax;
     fuelInput.value = load.fuel;
-    $("#load-title").textContent = `${aircraft.name} · ${nextMode === "landing" ? `${route.to.code} ${route.to.runway} FINAL` : nextMode === "takeoff" ? `${route.from.code} ${route.from.runway}` : `${route.from.code} → ${route.to.code}`}`;
+    const from = placeName(route.from.code);
+    const to = placeName(route.to.code);
+    $("#load-title").textContent = `${aircraft.name} · ${nextMode === "landing" ? `${to} ${route.to.runway} FINAL` : nextMode === "takeoff" ? `${from} ${route.from.runway}` : `${from} → ${to}`}`;
     updateLoadSheet();
     $("#load-overlay").hidden = false;
   }
