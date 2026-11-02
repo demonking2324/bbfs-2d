@@ -79,6 +79,12 @@
       <div class="warnings" id="warnings" aria-live="assertive"></div>
       <div class="fma" id="fma" hidden></div>
 
+      <section class="coach" id="coach" hidden aria-live="polite">
+        <div class="coach-head"><b id="coach-title"></b><small id="coach-step"></small></div>
+        <p id="coach-text"></p>
+        <button class="primary-button coach-next" id="coach-next" hidden>NEXT</button>
+      </section>
+
       <div class="gs-indicator" id="gs-indicator" hidden>
         <span class="gs-title">G/S</span>
         <div class="gs-scale"><i></i><i></i><b></b><i></i><i></i><em id="gs-diamond"></em></div>
@@ -142,6 +148,7 @@
       <div class="overlay" id="home-overlay">
         <div class="card home-card">
           <div class="start-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>BBFS 2D</strong><small>FLIGHT SIM</small></div>
+          <button class="challenge-entry tutorial-entry" id="home-tutorial"><b>FIRST FLIGHT</b><span>A guided flight that teaches every control</span><em id="home-tutorial-status">NEW? START HERE</em></button>
           <div class="home-modes">
             <button class="home-mode" id="home-free">
               <small>PLAY</small><b>FREE FLIGHT</b>
@@ -177,6 +184,7 @@
           <dl class="result-stats career-stats" id="career-stats"></dl>
           <small class="career-heading">FLEET</small>
           <div class="career-fleet" id="career-fleet"></div>
+          <p class="load-note is-warning" id="fleet-note" hidden></p>
           <small class="career-heading">TICKET PRICES</small>
           <div class="fare-row">
             <div class="fare-buttons" role="group" aria-label="Ticket prices">
@@ -232,11 +240,12 @@
           <button class="install-button" id="install-button" hidden>INSTALL APP</button>
           <details class="help">
             <summary>HOW TO FLY</summary>
+            <button class="secondary-button help-tutorial" id="help-tutorial">FLY THE GUIDED FIRST FLIGHT</button>
             <ol>
-              <li><b>Take off:</b> set takeoff flaps (A320: 1, A340: 2, 737: 5, 747: 10, 727: 15), throttle to TOGA, and pull up gently at rotate speed (about 140–158 kt) to about 10° (9° in the 737, 8° in the 727 and A340). The A320 and 747 tails strike at about 12°, the 737 at about 11°, the long 727 at about 10.7° and the even longer A340 at 9.3°. Gear up once climbing.</li>
+              <li><b>Take off:</b> set takeoff flaps (A320: 1, A330 and A340: 2, 737: 5, 747: 10, 727: 15), throttle to TOGA, and pull up gently at rotate speed (about 140–158 kt) to about 10° (9° in the 737, 8° in the 727, A330 and A340). The A320 and 747 tails strike at about 12°, the 737 at about 11°, the long 727 at about 10.7° and the even longer A330 and A340 at about 9.3°. Gear up once climbing.</li>
               <li><b>Climb &amp; cruise:</b> retract flaps and set CL thrust. Tap <b>AP</b> to open the autopilot: set SPD and ALT, then engage AP and A/THR. Speed up time with <b>1×</b> above 2,500 ft.</li>
               <li><b>Descend</b> at the T/D marker on the profile display: lower the ALT target (or idle thrust and nose down by hand) to about 250 kt.</li>
-              <li><b>Land:</b> slow down, landing flaps (A320 and A340: FULL, 737: 30, 747: 30, 727: 40), gear down. Arm <b>APPR</b> and the autopilot follows the glideslope; it disconnects at 100 ft so you flare by hand. Throttle idle, then the brakes stop you.</li>
+              <li><b>Land:</b> slow down, landing flaps (A320, A330 and A340: FULL, 737: 30, 747: 30, 727: 40), gear down. Arm <b>APPR</b> and the autopilot follows the glideslope; it disconnects at 100 ft so you flare by hand. Throttle idle, then the brakes stop you.</li>
             </ol>
             <p class="keys">Keys: W/S pitch · ↑/↓ throttle · G gear · F/R flaps · Z speedbrake · B brakes · A autopilot · Q autothrust · L approach · P autopilot panel · T sim rate · Space pause</p>
             <p class="keys">Fly-by-wire: release the stick and the aircraft holds its flight path. Below 50 ft it holds attitude, so you flare. Moving the stick or throttle disconnects the autopilot or autothrust.</p>

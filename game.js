@@ -310,6 +310,61 @@
     gearTransit: 9,
     flapTransit: 3.5,
   };
+  // Airbus A330-300: the A340's airframe with two big engines, so plenty of thrust but only one left after a failure;
+  // referenced to 180 t.
+  AIRCRAFT.a333 = {
+    id: "a333",
+    name: "A330-300",
+    sprites: { gearUp: "assets/aircraft/a333/a333-gear-up.png", gearDown: "assets/aircraft/a333/a333-gear-down.png" },
+    art: {
+      width: 612, height: 156, mainWheel: [301.5, 154.5], noseWheel: 64, tailBumper: [468, 127], nozzles: [[272, 131]],
+      beacon: [258, 80], bellyBeacon: [360, 134], tailStrobe: [608, 82], wingtip: [408, 82], landingLight: [64, 140],
+      windows: [{ y: 98, from: 71, to: 473, step: 5, r: 1.3 }], fin: [575, 40],
+    },
+    length: 63.66,
+    span: 60.3,
+    wingArea: 361.6,
+    mass: 180000,
+    maxThrust: 632000,
+    idleThrust: 0.035,
+    cl0: 0.2,
+    clAlpha: 5.2,
+    cd0: 0.019,
+    inducedK: 0.042,
+    gearCd: 0.016,
+    spoilerCd: 0.065,
+    spoilerLift: 0.55,
+    rollMu: 0.016,
+    brakeMu: 0.3,
+    flaps: [
+      { label: "0", cl: 0, cd: 0, clMax: 1.45, vfe: 330, speed: 250 },
+      { label: "1", cl: 0.35, cd: 0.008, clMax: 1.95, vfe: 240, speed: 205 },
+      { label: "2", cl: 0.6, cd: 0.02, clMax: 2.2, vfe: 196, speed: 180 },
+      { label: "3", cl: 0.8, cd: 0.035, clMax: 2.4, vfe: 186, speed: 160 },
+      { label: "FULL", cl: 1.05, cd: 0.05, clMax: 2.65, vfe: 180, speed: 140 },
+    ],
+    flapSchedule: [[32000, 1], [23000, 2], [16000, 3], [11500, 4]],
+    takeoffFlap: 2,
+    vmo: 330,
+    vle: 250,
+    vr: 145,
+    vapp: 137,
+    rotatePitch: 8,
+    climbPitch: 12,
+    engines: 2,
+    oew: 124000,
+    maxPax: 277,
+    maxFuel: 109000,
+    mtow: 242000,
+    mlw: 187000,
+    ffIdle: 0.24,
+    ffMax: 2.1,
+    burnPerKm: 13,
+    climbFuel: 900,
+    reserveFuel: 4000,
+    gearTransit: 9,
+    flapTransit: 3.5,
+  };
   const REFERENCE_MPP = AIRCRAFT.a320.length / AIRCRAFT.a320.art.width; // light sizes are tuned for the A320 art
   for (const type of Object.values(AIRCRAFT)) {
     type.mpp = type.length / type.art.width;
@@ -364,6 +419,7 @@
     LEPA: { name: "Palma", elevFt: 27, tower: 40 },
     LEMG: { name: "Málaga", elevFt: 53, tower: 38 },
     LXGB: { name: "Gibraltar", elevFt: 15, tower: 18 },
+    KJFK: { name: "New York", elevFt: 13, tower: 98 },
   };
   // terrain: [km from the departure threshold, ground elevation m, scenery theme, mountain factor 0–1].
   // The ground follows these points (smoothly) between the flat airport areas; themes pick the scenery.
@@ -405,7 +461,7 @@
     const [, number, side] = /^(\d+)([LRC]?)$/.exec(designator);
     return `${String(((Number(number) + 17) % 36) + 1).padStart(2, "0")}${{ L: "R", R: "L" }[side] ?? side}`;
   };
-  for (const def of ROUTES.slice()) {
+  function addReciprocal(def) {
     const [fromCode, fromRunway, fromLength] = def.from;
     const [toCode, toRunway, toLength] = def.to;
     const mirror = (def.distance + toLength) / 1000;
@@ -418,6 +474,19 @@
       distance: def.distance + toLength - fromLength, cruiseFt: def.cruiseFt, decel: def.decel, terrain: terrain.sort((a, b) => a[0] - b[0]),
     });
   }
+  for (const def of ROUTES.slice()) addReciprocal(def);
+  // The daily challenge draws from these routes only: it's a single takeoff or approach, which suits short routes.
+  const DAILY_ROUTES = ROUTES.length;
+  // Long haul goes after the short routes and their reciprocals, so existing route indices and saved loads stay valid.
+  // Over Wales and Ireland, across the Atlantic to Newfoundland and Nova Scotia, then down the coast to Long Island.
+  const LONG_HAUL = {
+    from: ["EGLL", "27R", 3902], to: ["KJFK", "31L", 4423], distance: 5540000, cruiseFt: 35000, decel: 18000,
+    terrain: [[-30, 20, "city"], [-4, 25, "farm"], [120, 180, "hills", 0.25], [260, 0, "sea"], [320, 60, "farm"], [640, 0, "sea"], [3650, 40, "hills", 0.2], [3950, 0, "sea"], [4300, 60, "farm"], [4620, 0, "sea"], [5480, 5, "city"], [5552, 10, "city"]],
+  };
+  ROUTES.push(LONG_HAUL);
+  addReciprocal(LONG_HAUL);
+  const LONG_HAUL_KM = 1000000;
+  const FAST_RATE_MARGIN = 60000; // meters before T/D where 16× and 32× end
   const START_X = 70;
   const TAN_GS = Math.tan(3 * DEG);
   let route;
@@ -491,7 +560,11 @@
     }
     return points[points.length - 1].mountains;
   }
-  const routeMinutes = () => Math.round(route.distance / 8400 + 6);
+  function routeTime() {
+    if (route.distance < LONG_HAUL_KM) return `~${Math.round(route.distance / 8400 + 6)} MIN`;
+    const minutes = Math.round(route.distance / 14000 + 15);
+    return `~${Math.floor(minutes / 60)} H ${String(minutes % 60).padStart(2, "0")} AT 1×, ~${Math.round(minutes / 32 + 10)} MIN AT 32×`;
+  }
 
   // ---------- weather & time of day ----------
   const WEATHER = {
@@ -627,6 +700,7 @@
   const FINAL_DISTANCE = 9000;
   let mode = "flight";
   let challenge = null;
+  let tutorial = null;
 
   // ---------- challenges ----------
   // Fixed scenarios with 1–3 stars. Each sets the aircraft, route, conditions and load, plus optional events.
@@ -746,7 +820,7 @@
     };
     const ids = Object.keys(AIRCRAFT);
     const aircraftId = ids[Math.floor(roll(1) * ids.length)];
-    const routeIndex = Math.floor(roll(2) * ROUTES.length);
+    const routeIndex = Math.floor(roll(2) * DAILY_ROUTES);
     const takeoff = roll(3) < 0.3;
     const weatherKey = weighted([["clear", 3], ["cloudy", 4], ["storm", 2], ["fog", takeoff ? 0 : 2]], roll(4));
     const timeKey = weighted([["day", 5], ["dusk", 3], ["night", 3]], roll(5));
@@ -834,6 +908,40 @@
     }
   }
 
+  // Career faults: what a worn aircraft can suffer in flight. Each flight has at most one, chosen at dispatch.
+  const GEAR_SLOW_S = 30;
+  const flapFaultLimit = () => Math.ceil(lastFlap() * 0.6);
+  // Approach speed with the flaps stuck short of landing flaps: the higher stall speed of the jammed setting.
+  const faultVappKt = () => Math.round(vappKt() * Math.sqrt(aircraft.flaps[lastFlap()].clMax / aircraft.flaps[sim.flapLimit].clMax));
+  const FAULTS = {
+    engine: {
+      label: "ENGINE FAILURE", speech: "engine failure",
+      apply: () => { sim.enginesOut = 1; },
+      advice: () => "ENGINE FAILURE · LESS THRUST FOR THE REST OF THE FLIGHT · DESCEND IF SPEED DECAYS",
+    },
+    flaps: {
+      label: "FLAP FAULT", speech: "flap fault",
+      apply: () => { sim.flapLimit = Math.max(flapFaultLimit(), sim.flapIndex); },
+      advice: () => `FLAP FAULT · FLAPS ${aircraft.flaps[sim.flapLimit].label} AT MOST · LAND FASTER, AT ${faultVappKt()} KT`,
+    },
+    gear: {
+      label: "HYDRAULIC FAULT", speech: "hydraulic fault",
+      apply: () => { sim.gearSlow = true; },
+      advice: () => `HYDRAULIC FAULT · GEAR TAKES ${GEAR_SLOW_S} S · LOWER IT EARLY`,
+    },
+  };
+  function triggerFault(kind) {
+    const fault = FAULTS[kind];
+    sim.fault = { kind, time: sim.time };
+    sim.rate = 1;
+    fault.apply();
+    flash(fault.label, 5);
+    audio.chime(3);
+    audio.say(fault.speech);
+    buzz([80, 50, 80]);
+    recordEvent("failure");
+  }
+
   function goAroundReport() {
     const g = sim.goAround;
     return {
@@ -863,6 +971,7 @@
       rotateIas: null, liftoffIas: null, liftoffX: null, maxGroundPitch: 0, gearUpFt: null, sawAlphaFloor: false, goalFpm: 0,
       fg: { ap: false, athr: false, appr: false, vertical: "ALT", spd: 250, spdTarget: 250, alt: route.cruiseFt, vs: 1500, retard: false },
       enginesOut: 0, flameout: false, failureTime: null, minIasAfterFailure: null, goAround: null, lowFuelWarned: false,
+      fault: null, flapLimit: null, gearSlow: false,
     });
     setLoad(currentLoad());
     particles.length = 0;
@@ -875,6 +984,7 @@
   // Weight: empty aircraft + passengers + fuel. Fuel burns off in flight, so the mass keeps changing.
   function currentLoad() {
     if (careerFlight) return { ...careerFlight.load };
+    if (tutorial) return defaultLoad();
     if (challenge?.load) return challenge.load(aircraft);
     const saved = settings.loads?.[`${aircraft.id}|${settings.route}`];
     return saved ? { ...saved } : defaultLoad();
@@ -929,7 +1039,7 @@
     if (fg.athr) autothrust(dt);
     const cmd = fg.ap ? autopilotPitch() : input.pitch;
 
-    sim.gearPos = approach(sim.gearPos, sim.gearDown ? 1 : 0, dt / ac.gearTransit);
+    sim.gearPos = approach(sim.gearPos, sim.gearDown ? 1 : 0, dt / (sim.gearSlow ? GEAR_SLOW_S : ac.gearTransit));
     sim.flapPos = approach(sim.flapPos, sim.flapIndex, dt / ac.flapTransit);
     if (sim.throttle > 0.9 || sim.alphaFloor) sim.speedbrake = false;
     const groundSpoilers = sim.onGround && sim.throttle < 0.05 && sim.ias > 50;
@@ -1027,6 +1137,7 @@
 
     if ((sim.flapPos > 0.05 && ias > currentVfe() + 3) || (sim.gearPos > 0.05 && ias > ac.vle + 3) || ias > ac.vmo + 2) sim.overspeedTime += dt;
     if (challenge) challengeTick(dt);
+    if (careerFlight?.fault && !sim.fault && sim.airborne && sim.x >= careerFlight.fault.atX) triggerFault(careerFlight.fault.kind);
     if (sim.touchdown && !sim.onGround && sim.agl > 30) {
       sim.touchdown = null;
       sim.bounces = 0;
@@ -1121,7 +1232,7 @@
     const fg = sim.fg;
     const [vmin, vmax] = speedLimits();
     fg.spdTarget = clamp(fg.spd, vmin, vmax);
-    if (!fg.retard && sim.maxAgl > 100 && sim.agl * FT < 30 && sim.vy < 0 && sim.flapIndex >= lastFlap() - 1) {
+    if (!fg.retard && sim.maxAgl > 100 && sim.agl * FT < 30 && sim.vy < 0 && sim.flapIndex >= (sim.flapLimit ?? lastFlap()) - 1) {
       fg.retard = true;
       audio.say("retard");
     }
@@ -1130,7 +1241,7 @@
       return;
     }
     const rate = clamp((fg.spdTarget - sim.ias) * 0.012 - (sim.iasTrend / 10) * 0.06, -0.15, 0.15);
-    sim.throttle = clamp(sim.throttle + rate * dt, 0, 0.82);
+    sim.throttle = clamp(sim.throttle + rate * dt, 0, sim.enginesOut ? 1 : 0.82); // with an engine out it may use all the thrust left
   }
 
   function toggleAp() {
@@ -1183,7 +1294,7 @@
   function adjustKnob(knob, dir) {
     const fg = sim.fg;
     if (knob === "spd") fg.spd = clamp(fg.spd + dir * 5, 100, 340);
-    if (knob === "alt") fg.alt = clamp(fg.alt + dir * ((dir > 0 ? fg.alt >= 5000 : fg.alt > 5000) ? 500 : 100), 0, 25000);
+    if (knob === "alt") fg.alt = clamp(fg.alt + dir * ((dir > 0 ? fg.alt >= 5000 : fg.alt > 5000) ? 500 : 100), 0, 41000);
     if (knob === "vs") fg.vs = clamp(fg.vs + dir * 100, 300, 4000);
     buzz(4);
   }
@@ -1278,7 +1389,7 @@
     touchdownEffects(sim.x, sim.vx, strength);
     recordEvent("touchdown", { strength });
     if (sim.maxAgl > 15 && !sim.touchdown) {
-      sim.touchdown = { vsFpm, ias: sim.ias, pitch: sim.pitch, dist: sim.x - runway.start, runway, noseFirst, time: sim.time, flaps: sim.flapIndex, mass: sim.mass, vapp: vappKt() };
+      sim.touchdown = { vsFpm, ias: sim.ias, pitch: sim.pitch, dist: sim.x - runway.start, runway, noseFirst, time: sim.time, flaps: sim.flapIndex, mass: sim.mass, vapp: sim.flapLimit !== null ? faultVappKt() : vappKt() };
     }
   }
 
@@ -1403,6 +1514,7 @@
       if (ias < vrKt()) return `TAKEOFF ROLL · ROTATE AT ${vrKt()} KT`;
       return `ROTATE · PULL GENTLY TO ${ac.rotatePitch}° (TAIL STRIKE AT ${Math.floor(TAIL_STRIKE / DEG)}°)`;
     }
+    if (sim.fault && sim.time - sim.fault.time < 10) return FAULTS[sim.fault.kind].advice();
     const distTd = TOUCHDOWN_X - sim.x;
     const cruise = route.cruiseLabel;
     if (sim.goAround?.called) {
@@ -1419,6 +1531,7 @@
       return `ENGINE FAILURE · CLIMB AT ${target} KT TO ${feet(TAKEOFF_GOAL_FT)} FT`;
     }
     if (sim.flameout) return "ENGINES OUT · GLIDE AT 220 KT · FIND A RUNWAY";
+    if (sim.enginesOut && sim.x < TOD_X && ias < vlsKt() + 15) return fg.ap ? "ENGINE OUT · SPEED LOW · LOWER AP ALT TO DESCEND" : "ENGINE OUT · SPEED LOW · NOSE DOWN, DESCEND";
     if (sim.x < TOD_X) {
       if (sim.gearDown && sim.vy > 0) return "POSITIVE CLIMB · GEAR UP (G)";
       if (mode === "takeoff") return `CLIMB TO ${feet(TAKEOFF_GOAL_FT)} FT · ABOUT ${ac.climbPitch}° PITCH · ${Math.max(0, Math.round((TAKEOFF_GOAL_FT - agl) / 10) * 10)} FT TO GO`;
@@ -1442,13 +1555,13 @@
       if (ias > 300) return "TOO FAST · LESS NOSE DOWN OR SPEED BRAKE";
       return `DESCEND TO ${intercept} · ABOUT −1,300 FPM · ${km(distTd)}`;
     }
-    const wantFlaps = ac.flapSchedule.reduce((want, [dist, index]) => (distTd < dist ? index : want), 1);
-    if (!sim.gearDown && (distTd < 16000 || agl < 2000)) return "GEAR DOWN (G)";
+    const wantFlaps = Math.min(ac.flapSchedule.reduce((want, [dist, index]) => (distTd < dist ? index : want), 1), sim.flapLimit ?? lastFlap());
+    if (!sim.gearDown && (distTd < (sim.gearSlow ? 24000 : 16000) || agl < 2000)) return "GEAR DOWN (G)";
     if (sim.flapIndex < wantFlaps) {
       const next = ac.flaps[sim.flapIndex + 1];
       return ias > next.vfe - 3 ? `SLOW BELOW ${next.vfe} KT · THEN FLAPS ${next.label}` : `FLAPS ${next.label} (FLAPS ▼ OR F)`;
     }
-    const speed = flapSpeed(sim.flapIndex);
+    const speed = sim.flapLimit !== null && sim.flapIndex >= sim.flapLimit ? faultVappKt() : flapSpeed(sim.flapIndex);
     if (fg.ap && !fg.appr) return "ARM APPR TO CAPTURE THE GLIDESLOPE";
     if (sim.x < INTERCEPT_X - 500) return `HOLD ${intercept} · ${speed} KT · GLIDESLOPE IN ${km(INTERCEPT_X - sim.x)}`;
     const deviation = (sim.y - glidepathAlt(sim.x)) * FT;
@@ -1475,6 +1588,8 @@
     if (sim.tailStrike && sim.time - sim.tailStrikeTime < 4) list.push(["TAIL STRIKE", "caution"]);
     if (sim.flameout) list.push(["ALL ENGINES OUT", "warn"]);
     else if (sim.enginesOut) list.push([`ENG ${sim.enginesOut > 1 ? "FAIL ×" + sim.enginesOut : "1 FAIL"}`, "warn"]);
+    if (sim.flapLimit !== null) list.push([`FLAPS ${aircraft.flaps[sim.flapLimit].label} MAX`, "caution"]);
+    if (sim.gearSlow) list.push(["GEAR SLOW", "caution"]);
     if (!sim.flameout && sim.fuel < aircraft.reserveFuel * 0.6) list.push([sim.fuel < aircraft.reserveFuel * 0.25 ? "FUEL LOW · LAND NOW" : "LOW FUEL", "caution"]);
     if (terrainAhead()) list.push(["TERRAIN · PULL UP", "warn"]);
     if (sim.goAround?.called && sim.time - sim.goAround.callTime < 6) list.push(["GO AROUND", "warn"]);
@@ -1534,7 +1649,7 @@
     score -= clamp((Math.abs(td.ias - (td.vapp - 5)) - 10) * 0.8, 0, 15);
     const overweight = td.mass - aircraft.mlw;
     if (overweight > 0) score -= Math.min(15, 5 + overweight / aircraft.mlw * 100);
-    if (td.flaps < lastFlap()) score -= 5;
+    if (td.flaps < (sim.flapLimit ?? lastFlap())) score -= 5;
     if (sim.tailStrike) score -= 25;
     if (td.noseFirst) score -= 15;
     score -= sim.bounces * 8;
@@ -1546,7 +1661,7 @@
     if (sim.tailStrike) notes.push("tail strike");
     if (td.noseFirst) notes.push("nose wheel first");
     if (sim.bounces) notes.push(`${sim.bounces} bounce${sim.bounces > 1 ? "s" : ""}`);
-    if (td.flaps < lastFlap()) notes.push(`flaps not ${aircraft.flaps[lastFlap()].label}`);
+    if (td.flaps < (sim.flapLimit ?? lastFlap())) notes.push(`flaps not ${aircraft.flaps[sim.flapLimit ?? lastFlap()].label}`);
     if (sim.overspeedTime > 1) notes.push(`${Math.round(sim.overspeedTime)} s overspeed`);
     if (overweight > 0) notes.push(`overweight landing, ${(overweight / 1000).toFixed(1)} t over the ${(aircraft.mlw / 1000).toFixed(0)} t limit`);
     return {
@@ -2062,7 +2177,7 @@
     // A mixed fleet at the gates; each stand is as long as the aircraft parked on it.
     for (let x = a0 + 40, i = 0; x < terminalEnd - 30; i += 1) {
       const pick = hash2(i, runway.start + 9);
-      const type = pick < 0.15 ? AIRCRAFT.b744 : pick < 0.27 ? AIRCRAFT.a343 : pick < 0.4 ? AIRCRAFT.b722 : pick < 0.62 ? AIRCRAFT.b733 : AIRCRAFT.a320;
+      const type = pick < 0.13 ? AIRCRAFT.b744 : pick < 0.22 ? AIRCRAFT.a343 : pick < 0.32 ? AIRCRAFT.a333 : pick < 0.42 ? AIRCRAFT.b722 : pick < 0.62 ? AIRCRAFT.b733 : AIRCRAFT.a320;
       const parkedX = x + type.length / 2;
       x += type.length + 22;
       if (hash2(i, runway.start) < 0.22) continue;
@@ -3190,8 +3305,11 @@
     const card = $("#result-overlay .result-card");
     const stats = $("#result-stats");
     card.classList.toggle("is-challenge", !!challenge);
+    hideCoach();
     if (careerFlight) {
       showCareerResult(card, stats);
+    } else if (tutorial) {
+      showTutorialResult(card, stats);
     } else if (challenge) {
       showChallengeResult(card, stats);
     } else if (sim.state === "crashed") {
@@ -3418,7 +3536,9 @@
   }
   function moveFlaps(delta) {
     if (sim.state !== "flying") return;
-    sim.flapIndex = clamp(sim.flapIndex + delta, 0, aircraft.flaps.length - 1);
+    const limit = sim.flapLimit ?? aircraft.flaps.length - 1;
+    if (delta > 0 && sim.flapIndex >= limit && sim.flapLimit !== null) flash(`FLAP FAULT · FLAPS ${aircraft.flaps[limit].label} AT MOST`);
+    sim.flapIndex = clamp(sim.flapIndex + delta, 0, limit);
     buzz(8);
   }
   function toggleSpeedbrake() {
@@ -3436,7 +3556,8 @@
       flash("TIME SPEED-UP ABOVE 2,500 FT ONLY");
       return;
     }
-    sim.rate = { 1: 2, 2: 4, 4: 8, 8: 1 }[sim.rate];
+    const fastAllowed = route.distance >= LONG_HAUL_KM && sim.x < TOD_X - FAST_RATE_MARGIN;
+    sim.rate = { 1: 2, 2: 4, 4: 8, 8: fastAllowed ? 16 : 1, 16: 32, 32: 1 }[sim.rate];
   }
   function setPaused(paused) {
     sim.paused = paused && sim.state === "flying" && !replay.active;
@@ -3446,6 +3567,8 @@
   function useSettings() {
     challenge = null;
     careerFlight = null;
+    tutorial = null;
+    hideCoach();
     applyAircraft(settings.aircraft);
     applyRoute(settings.route);
     syncRun();
@@ -3462,7 +3585,7 @@
   }
   function startFlight(nextMode = mode) {
     mode = MODES[nextMode] ? nextMode : "flight";
-    if (!challenge && !careerFlight) syncRun();
+    if (!challenge && !careerFlight && !tutorial) syncRun();
     replay.active = false;
     game.classList.remove("is-replay");
     $("#replay-bar").hidden = true;
@@ -3474,13 +3597,14 @@
     if (challenge) challenge.setup?.();
     sim.takeoffVr = vrKt();
     fcuOpen = false;
+    if (tutorial) beginTutorialRun();
     updateCamera(10);
-    $("#restart-button").textContent = challenge ? "RESTART CHALLENGE" : MODES[mode].restart;
+    $("#restart-button").textContent = tutorial ? (tutorial.checkpoint ? "BACK TO FINAL APPROACH" : "START AGAIN") : challenge ? "RESTART CHALLENGE" : MODES[mode].restart;
     // Career flights are paid once: no restarts, and leaving early goes back to the hub.
     $("#restart-button").hidden = !!careerFlight;
     $("#again-button").hidden = !!careerFlight;
-    $("#menu-button").textContent = careerFlight ? "ABANDON FLIGHT" : "MAIN MENU";
-    $("#result-menu-button").textContent = careerFlight ? "CONTINUE" : "MAIN MENU";
+    $("#menu-button").textContent = careerFlight ? "ABANDON FLIGHT" : tutorial ? "END FIRST FLIGHT" : "MAIN MENU";
+    $("#result-menu-button").textContent = careerFlight ? "CONTINUE" : tutorial ? "HOME" : "MAIN MENU";
     $("#start-overlay").hidden = true;
     $("#pause-overlay").hidden = true;
     $("#result-overlay").hidden = true;
@@ -3516,7 +3640,7 @@
     $("#weather-label").textContent = WEATHER[settings.weather].label;
     $("#aircraft-label").textContent = aircraft.name;
     $("#start-plane").src = aircraft.paintedUrl || aircraft.sprites.gearDown;
-    $("#plan-distance").textContent = `${aircraft.name} · ${km(TOUCHDOWN_X - START_X)} · ${route.cruiseLabel} · ~${routeMinutes()} MIN`;
+    $("#plan-distance").textContent = `${aircraft.name} · ${km(TOUCHDOWN_X - START_X)} · ${route.cruiseLabel} · ${routeTime()}`;
     $("#time-label").textContent = TIMES[settings.time].label;
     updateChallengeMenu();
     updateDailyMenu();
@@ -3623,8 +3747,8 @@
   $("#resume-button").addEventListener("click", () => setPaused(false));
   $("#restart-button").addEventListener("click", () => startFlight());
   $("#again-button").addEventListener("click", () => startFlight());
-  $("#menu-button").addEventListener("click", () => (careerFlight ? abandonCareerFlight() : showMenu()));
-  $("#result-menu-button").addEventListener("click", () => (careerFlight ? showCareer() : showMenu()));
+  $("#menu-button").addEventListener("click", () => (careerFlight ? abandonCareerFlight() : tutorial ? exitTutorial() : showMenu()));
+  $("#result-menu-button").addEventListener("click", () => (careerFlight ? showCareer() : tutorial ? exitTutorial() : showMenu()));
   for (const card of document.querySelectorAll(".mode-card")) card.addEventListener("click", () => openLoadSheet(card.dataset.mode));
   $("#challenge-button").addEventListener("click", () => {
     updateChallengeMenu();
@@ -4040,11 +4164,13 @@
     b733: { price: 60000, upkeep: 3000, minRunway: 1600 },
     b722: { price: 70000, upkeep: 5000, minRunway: 1800 },
     a320: { price: 90000, upkeep: 4000, minRunway: 1800 },
+    a333: { price: 180000, upkeep: 8000, minRunway: 2400 },
     a343: { price: 220000, upkeep: 10000, minRunway: 2500 },
     b744: { price: 320000, upkeep: 14000, minRunway: 2600 },
   };
   const FUEL_PRICE = 1; // $ per kg
-  const fare = (km) => 90 + 0.9 * km;
+  // Fares grow with distance, far more slowly past 500 km, so long haul pays well without dwarfing the fleet prices.
+  const fare = (km) => 90 + 0.9 * Math.min(km, 500) + 0.1 * Math.max(0, km - 500);
   // Fare levels: ticket price and passenger demand multipliers. Premium passengers expect a landing of 75 or better.
   const FARES = {
     economy: { label: "ECONOMY", price: 0.75, demand: 1.3, note: "Cheaper tickets fill more seats" },
@@ -4052,24 +4178,56 @@
     premium: { label: "PREMIUM", price: 1.45, demand: 0.75, note: "Pays more, but land 75+ or lose 5 reputation" },
   };
   const PREMIUM_SCORE = 75;
-  const HUB_PRICES = { EGLL: 150000, EHAM: 120000, EDDM: 110000, LEBL: 110000, EGCC: 90000, LEMG: 80000, LEPA: 80000, EGPH: 70000, EGPF: 70000, EGGD: 50000, LOWI: 50000, LXGB: 40000 };
+  const HUB_PRICES = { EGLL: 150000, EHAM: 120000, EDDM: 110000, LEBL: 110000, EGCC: 90000, LEMG: 80000, LEPA: 80000, EGPH: 70000, EGPF: 70000, EGGD: 50000, LOWI: 50000, LXGB: 40000, KJFK: 180000 };
   const HUB_BONUS = 1.3; // more passengers when both ends are your hubs
   // Loans: borrow in steps, repaid automatically over ten flights with a flat 15% fee.
   const LOAN_STEP = 50000;
   const LOAN_FEE = 1.15;
   const LOAN_FLIGHTS = 10;
+  // Wear: every flight adds some, rough flying adds more. Above FAULT_FREE_WEAR it can cause a fault in flight;
+  // a service clears it, for a share of the aircraft's price.
+  const FAULT_FREE_WEAR = 25;
+  const SERVICE_SHARE = 0.4; // of the aircraft's price, for a service from 100% wear
+  const FAULT_REPAIR_SHARE = 0.08;
+  const FAULT_REPUTATION = 4;
+  const wearOf = (id) => career.wear[id] ?? 0;
+  const faultChance = (wear) => (clamp((wear - FAULT_FREE_WEAR) / (100 - FAULT_FREE_WEAR), 0, 1) ** 1.5) * 0.8;
+  const serviceCost = (id) => Math.ceil(wearOf(id) / 100 * CAREER_TYPES[id].price * SERVICE_SHARE / 100) * 100;
+  const addWear = (id, amount) => { career.wear[id] = clamp(wearOf(id) + amount, 0, 100); };
+  function flightWear(crashed, report) {
+    let wear = 3 + route.distance / 500000;
+    if (crashed) return wear + 20;
+    const fpm = Math.max(0, -(sim.touchdown?.vsFpm ?? 0));
+    if (fpm >= 700) wear += 8;
+    else if (fpm >= 420) wear += 4;
+    if (sim.tailStrike) wear += 5;
+    if (sim.overspeedTime > 1) wear += 3;
+    if (report) wear += sim.bounces;
+    return wear;
+  }
+  // Rolled at dispatch: whether this flight has a fault, which one, and how far along the route it strikes.
+  function rollFault(typeId, distance) {
+    if (Math.random() >= faultChance(wearOf(typeId))) return null;
+    const kinds = Object.keys(FAULTS);
+    return { kind: kinds[Math.floor(Math.random() * kinds.length)], atX: distance * lerp(0.1, 0.6, Math.random()) };
+  }
   const money = (value) => `${value < 0 ? "−" : ""}$${Math.abs(Math.round(value)).toLocaleString("en-US")}`;
   let career = null;
   let careerFlight = null;
   try { career = JSON.parse(localStorage.getItem("bbfs2d.career") || "null"); } catch { career = null; }
   // Airlines founded before hubs, fares and loans start at Heathrow on standard fares with no debt.
-  if (career) career = { hubs: ["EGLL"], fareLevel: "standard", debt: 0, loanPayment: 0, ...career };
+  if (career) career = { hubs: ["EGLL"], fareLevel: "standard", debt: 0, loanPayment: 0, wear: {}, ...career };
   if (career) career.debt = Math.round(career.debt);
   const saveCareer = () => { try { localStorage.setItem("bbfs2d.career", JSON.stringify(career)); } catch { /* storage unavailable */ } };
-  const canUse = (typeId, routeIndex) => {
+  const runwayOk = (typeId, routeIndex) => {
     const def = ROUTES[routeIndex];
     return Math.min(def.from[2], def.to[2]) >= CAREER_TYPES[typeId].minRunway;
   };
+  const inRange = (typeId, routeIndex) => {
+    const type = AIRCRAFT[typeId];
+    return type.climbFuel + type.burnPerKm * ROUTES[routeIndex].distance / 1000 + type.reserveFuel <= type.maxFuel;
+  };
+  const canUse = (typeId, routeIndex) => runwayOk(typeId, routeIndex) && inRange(typeId, routeIndex);
   const hubCount = (def) => [def.from[0], def.to[0]].filter((code) => career.hubs.includes(code)).length;
   const routesAt = (code) => ROUTES.filter((def) => def.from[0] === code || def.to[0] === code).length;
   const maxDebt = () => 100000 + 0.6 * career.fleet.reduce((sum, id) => sum + CAREER_TYPES[id].price, 0);
@@ -4115,6 +4273,9 @@
     careerFlight = null;
     for (const id of ["#start-overlay", "#career-overlay", "#found-overlay", "#result-overlay", "#pause-overlay"]) $(id).hidden = true;
     game.classList.remove("is-started");
+    let flown = false;
+    try { flown = localStorage.getItem("bbfs2d.tutorial") === "1"; } catch { /* storage unavailable */ }
+    $("#home-tutorial-status").textContent = flown ? "FLY IT AGAIN" : "NEW? START HERE";
     $("#home-career-status").textContent = career ? `${career.name} · ${money(career.cash)} · ${career.fleet.length} AIRCRAFT` : "START A NEW AIRLINE";
     $("#home-overlay").hidden = false;
   }
@@ -4136,7 +4297,9 @@
   }
   let foundHub = "EGLL";
   function renderFoundHubs() {
-    $("#found-hubs").replaceChildren(...Object.keys(AIRPORTS).map((code) => {
+    // A new airline only has a 737, so its home hub needs a route the 737 can fly.
+    const homes = Object.keys(AIRPORTS).filter((code) => ROUTES.some((def, i) => (def.from[0] === code || def.to[0] === code) && canUse("b733", i)));
+    $("#found-hubs").replaceChildren(...homes.map((code) => {
       const button = document.createElement("button");
       button.className = "hub-chip";
       button.setAttribute("aria-pressed", String(code === foundHub));
@@ -4151,7 +4314,7 @@
     const name = $("#airline-name").value.trim().toUpperCase() || "BBFS AIR";
     career = {
       name, cash: 25000, reputation: 50, fleet: ["b733"], selected: "b733", flights: 0, hours: 0, seed: Math.floor(Math.random() * 1e5), log: [],
-      hubs: [foundHub], fareLevel: "standard", debt: 0, loanPayment: 0,
+      hubs: [foundHub], fareLevel: "standard", debt: 0, loanPayment: 0, wear: {},
     };
     saveCareer();
     $("#found-overlay").hidden = true;
@@ -4193,10 +4356,19 @@
       const owned = career.fleet.includes(id);
       const card = document.createElement("div");
       card.className = `fleet-card${owned ? " is-owned" : ""}${career.selected === id ? " is-selected" : ""}`;
-      card.innerHTML = `<img alt="" /><b></b><small></small><div class="fleet-actions"></div>`;
+      card.innerHTML = `<img alt="" /><b></b><small></small><div class="wear" hidden><i></i><span></span></div><div class="fleet-actions"></div>`;
       card.querySelector("img").src = owned ? type.paintedUrl || type.sprites.gearDown : type.sprites.gearDown;
       card.querySelector("b").textContent = type.name;
       card.querySelector("small").textContent = owned ? (career.selected === id ? "FLYING THIS" : "IN YOUR FLEET") : `${money(CAREER_TYPES[id].price)} · ${type.maxPax} SEATS`;
+      if (owned) card.querySelector(".wear").hidden = false;
+      if (owned) {
+        const wear = wearOf(id);
+        const chance = faultChance(wear);
+        card.querySelector(".wear i").style.width = `${wear}%`;
+        card.querySelector(".wear").classList.toggle("is-high", chance >= 0.25);
+        card.querySelector(".wear").classList.toggle("is-mid", chance > 0 && chance < 0.25);
+        card.querySelector(".wear span").textContent = `WEAR ${Math.round(wear)}%${chance > 0 ? ` · RISK ${Math.round(chance * 100)}%` : ""}`;
+      }
       const actions = card.querySelector(".fleet-actions");
       const button = (label, onClick, disabled = false) => {
         const b = document.createElement("button");
@@ -4209,6 +4381,8 @@
       if (owned) {
         if (career.selected !== id) button("FLY THIS", () => { career.selected = id; saveCareer(); applyAircraft(id); renderCareer(); });
         button("PAINT", () => paintFleetAircraft(id, `Repaint your ${type.name} in ${career.name} colours.`));
+        const cost = serviceCost(id);
+        button(cost ? `SERVICE ${money(cost)}` : "SERVICED", () => serviceAircraft(id), !cost || career.cash < cost);
       } else {
         button("BUY", () => {
           career.cash -= CAREER_TYPES[id].price;
@@ -4221,6 +4395,10 @@
       return card;
     }));
     const selected = AIRCRAFT[career.selected];
+    const risk = faultChance(wearOf(career.selected));
+    const note = $("#fleet-note");
+    note.hidden = risk <= 0;
+    note.textContent = `Your ${selected.name} is ${Math.round(wearOf(career.selected))}% worn: a ${Math.round(risk * 100)}% chance of a fault in flight. A service clears it.`;
     $("#career-offers").replaceChildren(...careerOffers().map((offer) => {
       const def = ROUTES[offer.route];
       const usable = canUse(career.selected, offer.route);
@@ -4232,6 +4410,7 @@
       card.querySelector("span").textContent = `${Math.round(def.distance / 1000)} KM · ${offer.pax} PAX WAITING${offer.hubs ? " (HUB TO HUB)" : ""} · ${WEATHER[offer.weather].label} · ${TIMES[offer.time].label}`;
       card.querySelector("small").textContent = usable
         ? `${selected.name} carries ${passengers(offer, selected)} on ${FARES[career.fareLevel].label.toLowerCase()} fares`
+        : !inRange(career.selected, offer.route) ? `Too far for the ${selected.name}: not enough fuel range`
         : `Runway too short for the ${selected.name} (needs ${CAREER_TYPES[career.selected].minRunway.toLocaleString("en-US")} m)`;
       card.querySelector("em").textContent = usable ? `EST. ${money(estimateProfit(offer, career.selected))}` : "—";
       card.addEventListener("click", () => flyOffer(offer));
@@ -4295,6 +4474,14 @@
     saveCareer();
     renderCareer();
   }
+  function serviceAircraft(id) {
+    const cost = serviceCost(id);
+    if (!cost || career.cash < cost) return;
+    career.cash -= cost;
+    career.wear[id] = 0;
+    saveCareer();
+    renderCareer();
+  }
   function flyOffer(offer) {
     const type = AIRCRAFT[career.selected];
     const pax = passengers(offer, type);
@@ -4303,7 +4490,7 @@
     applyRoute(offer.route);
     Object.assign(run, { weather: offer.weather, time: offer.time });
     cloudCache.clear();
-    careerFlight = { offer, typeId: type.id, fareLevel: career.fareLevel, load: { pax, fuel: careerFuel(type, offer.route, pax).load } };
+    careerFlight = { offer, typeId: type.id, fareLevel: career.fareLevel, load: { pax, fuel: careerFuel(type, offer.route, pax).load }, fault: rollFault(type.id, ROUTES[offer.route].distance) };
     $("#career-overlay").hidden = true;
     startFlight("flight");
   }
@@ -4319,42 +4506,52 @@
     const fuel = Math.round((sim.startFuel - sim.fuel) * FUEL_PRICE);
     const repairs = crashed ? Math.round(prices.price * 0.25) : 0;
     const disappointed = arrived && flight.fareLevel === "premium" && report.score < PREMIUM_SCORE;
-    const reputation = (crashed ? -15 : arrived ? clamp((report.score - 60) / 6, -5, 5) : -3) - (disappointed ? 5 : 0);
-    career.cash += tickets - fuel - prices.upkeep - repairs;
+    // A fault costs a repair whatever happens next; bringing the aircraft in anyway earns some reputation.
+    const fault = sim.fault ? FAULTS[sim.fault.kind] : null;
+    const faultRepair = fault && !crashed ? Math.round(prices.price * FAULT_REPAIR_SHARE) : 0;
+    const handled = !!fault && arrived;
+    const reputation = (crashed ? -15 : arrived ? clamp((report.score - 60) / 6, -5, 5) : -3) - (disappointed ? 5 : 0) + (handled ? FAULT_REPUTATION : 0);
+    const wearBefore = wearOf(flight.typeId);
+    addWear(flight.typeId, flightWear(crashed, report));
+    career.cash += tickets - fuel - prices.upkeep - repairs - faultRepair;
     const loan = payLoan();
-    const net = tickets - fuel - prices.upkeep - repairs - loan;
+    const net = tickets - fuel - prices.upkeep - repairs - faultRepair - loan;
     career.reputation = clamp(career.reputation + reputation, 0, 100);
     career.flights += 1;
     career.hours += sim.time / 3600;
     career.seed += 1;
     const label = `${placeName(route.from.code)} → ${placeName(route.to.code)}`;
-    career.log.unshift({ text: `${AIRCRAFT[flight.typeId].name} · ${label} · ${crashed ? sim.crash.title : arrived ? `${report.score}/100` : "NO REVENUE"}`, net });
+    career.log.unshift({ text: `${AIRCRAFT[flight.typeId].name} · ${label} · ${crashed ? sim.crash.title : arrived ? `${report.score}/100` : "NO REVENUE"}${fault ? ` · ${fault.label}` : ""}`, net });
     career.log.length = Math.min(career.log.length, 8);
     saveCareer();
     card.classList.toggle("is-crash", !arrived);
     $("#result-kicker").textContent = `CAREER · ${career.name}`;
     $("#result-title").textContent = crashed ? sim.crash.title : arrived ? report.grade : "NO REVENUE";
     $("#result-copy").textContent = crashed ? `${sim.crash.copy} Repairs cost ${money(repairs)}.`
-      : arrived ? `${report.copy} ${sim.pax} passengers to ${route.to.name}.${disappointed ? ` Premium passengers expected a ${PREMIUM_SCORE}+ landing: −5 reputation.` : ""}`
+      : arrived ? `${report.copy} ${sim.pax} passengers to ${route.to.name}.${disappointed ? ` Premium passengers expected a ${PREMIUM_SCORE}+ landing: −5 reputation.` : ""}${handled ? ` You brought them in despite the ${fault.label.toLowerCase()}: +${FAULT_REPUTATION} reputation.` : ""}`
       : `The flight didn't end at ${route.to.name}, so no tickets were paid.`;
     stats.replaceChildren(...[
       [`TICKETS · ${fares.label}`, `${money(tickets)}${arrived ? ` · ${report.score}/100` : ""}`, tickets ? "good" : ""],
       ["FUEL", money(-fuel), ""],
       ["UPKEEP", money(-prices.upkeep), ""],
       ...(repairs ? [["REPAIRS", money(-repairs), "bad"]] : []),
+      ...(faultRepair ? [[fault.label, money(-faultRepair), "bad"]] : []),
       ...(loan ? [["LOAN PAYMENT", money(-loan), "meh"]] : []),
       ["NET", money(net), net >= 0 ? "good" : "bad"],
       ["CASH", money(career.cash), career.cash >= 0 ? "good" : "bad"],
       ["REPUTATION", `${Math.round(career.reputation)} (${reputation >= 0 ? "+" : "−"}${Math.abs(Math.round(reputation))})`, reputation >= 0 ? "good" : "bad"],
+      ["WEAR", `${Math.round(wearBefore)}% → ${Math.round(wearOf(flight.typeId))}%`, faultChance(wearOf(flight.typeId)) >= 0.25 ? "bad" : faultChance(wearOf(flight.typeId)) > 0 ? "meh" : "good"],
       ["FLIGHT TIME", clock(sim.time), ""],
     ].map(statRow));
   }
-  // Leaving a flight early still pays the crew and upkeep.
+  // Leaving a flight early still pays the crew and upkeep, adds wear, and a fault that has struck still needs repairing.
   function abandonCareerFlight() {
     const upkeep = CAREER_TYPES[careerFlight.typeId].upkeep;
-    career.cash -= upkeep;
+    const faultRepair = sim.fault ? Math.round(CAREER_TYPES[careerFlight.typeId].price * FAULT_REPAIR_SHARE) : 0;
+    addWear(careerFlight.typeId, 1);
+    career.cash -= upkeep + faultRepair;
     const loan = payLoan();
-    career.log.unshift({ text: `${AIRCRAFT[careerFlight.typeId].name} · flight abandoned`, net: -upkeep - loan });
+    career.log.unshift({ text: `${AIRCRAFT[careerFlight.typeId].name} · flight abandoned`, net: -upkeep - faultRepair - loan });
     career.log.length = Math.min(career.log.length, 8);
     saveCareer();
     showCareer();
@@ -4386,6 +4583,192 @@
   }
   $("#bank-borrow").addEventListener("click", borrow);
   $("#bank-repay").addEventListener("click", repayLoan);
+
+  // ---------- first flight ----------
+  // A guided Edinburgh → Glasgow flight in clear weather: coach cards walk through each control and highlight it.
+  // A card with hold freezes the flight until NEXT. Once the aircraft is set up for landing a crash only sends the
+  // pilot back to the 9 km final, not to the start.
+  const TUTORIAL_ROUTE = 0;
+  const panelTarget = (selector) => (fcuOpen ? [selector] : ["#fcu-button"]);
+  const TUTORIAL_STEPS = [
+    {
+      id: "welcome", hold: true, title: "YOUR FIRST FLIGHT", target: () => ["#objective"],
+      text: () => "You're flying an A320 from Edinburgh to Glasgow, about 10 minutes. These cards take you through it, and the line at the bottom always says what to do next.",
+    },
+    {
+      id: "flaps", title: "SET TAKEOFF FLAPS", target: () => ["#flaps-down"], done: () => sim.flapIndex >= aircraft.takeoffFlap,
+      text: () => `Flaps give the wing more lift at low speed. Tap FLAPS ▼ to set flaps ${aircraft.flaps[aircraft.takeoffFlap].label}. (Key: F)`,
+    },
+    {
+      id: "thrust", title: "FULL THRUST", target: () => ["#throttle"], done: () => sim.throttle > 0.9,
+      text: () => "Drag the THR lever all the way up to TOGA, the takeoff setting. (Hold ↑)",
+    },
+    {
+      id: "roll", title: "WATCH YOUR SPEED", target: () => [".pfd .readout:first-child"], done: () => sim.ias >= vrKt() - 12,
+      text: () => `IAS is your airspeed in knots. You'll lift off at ${vrKt()} kt. Get a finger ready on the PITCH pad.`,
+    },
+    {
+      id: "rotate", title: "ROTATE", target: () => ["#pitch-pad"], done: () => sim.airborne && sim.agl * FT > 20,
+      text: () => `Drag PITCH up gently (hold W) to about ${aircraft.rotatePitch}° of pitch, shown under V/S. Too fast and the tail hits the runway.`,
+    },
+    {
+      id: "gear", title: "GEAR UP", target: () => ["#gear-button"], done: () => !sim.gearDown,
+      text: () => "You're flying! Tap GEAR to raise the wheels. (Key: G)",
+    },
+    {
+      id: "climb", title: "CLIMB", target: () => [".pfd .readout:nth-child(2)"], done: () => sim.agl * FT > 1000,
+      text: () => `Hold about ${aircraft.climbPitch}° of pitch up to 1,000 ft. Let go of the pad and the aircraft keeps its flight path.`,
+    },
+    {
+      id: "flaps-up", title: "FLAPS UP", target: () => ["#flaps-up"], done: () => sim.flapIndex === 0,
+      text: () => "You're fast enough not to need flaps now. Tap FLAPS ▲. (Key: R)",
+    },
+    {
+      id: "climb-thrust", title: "CLIMB THRUST", target: () => ["#throttle"], done: () => sim.throttle < 0.9,
+      text: () => "TOGA is for takeoff only. Pull the lever back to the CL mark. (Hold ↓)",
+    },
+    {
+      id: "ap-intro", hold: true, title: "THE AUTOPILOT", target: () => ["#fcu-button"],
+      text: () => "The autopilot flies the climb and cruise for you. AP holds the height, and A/THR holds the speed by moving the throttle.",
+    },
+    {
+      id: "ap", title: "TURN THEM ON", target: () => panelTarget(sim.fg.ap ? "#athr-button" : "#ap-button"), done: () => sim.fg.ap && sim.fg.athr,
+      text: () => "Tap AP at the top to open the panel, then tap AP and A/THR in it. (Keys: A and Q) Moving the stick or throttle turns them off again.",
+    },
+    {
+      id: "speed-up", keepRate: true, title: "SPEED UP TIME", target: () => ["#rate-button"], done: () => sim.rate > 1 || sim.x > TOD_X - 3000,
+      text: () => "Nothing to do for a while. Above 2,500 ft you can tap 1× to speed up time. (Key: T)",
+    },
+    {
+      id: "cruise", keepRate: true, title: "CRUISE", target: () => ["#vd"], done: () => sim.x > TOD_X - 1500,
+      text: () => "The PROFILE panel shows the whole flight. The blue dashes are your path, and T/D marks where the descent starts. Sit back until you reach it.",
+    },
+    {
+      id: "descend", title: "START DOWN", target: () => panelTarget('.knob[data-knob="alt"]'), done: () => sim.fg.alt / FT <= route.interceptAlt + 30,
+      text: () => `Time to go down. Hold − on ALT in the autopilot panel until it reads ${Math.round(route.interceptAlt * FT / 100) * 100}.`,
+    },
+    {
+      id: "slow", title: "SLOW DOWN", target: () => panelTarget('.knob[data-knob="spd"]'), done: () => sim.fg.spd <= vappKt() + 5,
+      text: () => `Hold − on SPD down to ${Math.ceil(vappKt() / 5) * 5} kt, your landing speed. A/THR won't go below what's safe for your flaps, so it slows as you add them.`,
+    },
+    {
+      id: "appr", title: "ARM THE APPROACH", target: () => panelTarget("#appr-button"), done: () => sim.fg.appr,
+      text: () => "Tap APPR. The autopilot will now follow the glideslope, the 3° path down to the runway. (Key: L)",
+    },
+    {
+      id: "configure", title: "FLAPS AND GEAR", done: () => sim.gearDown && sim.flapIndex === lastFlap(),
+      target: () => (TOUCHDOWN_X - sim.x < 16000 && !sim.gearDown ? ["#gear-button"] : guidance().startsWith("FLAPS") ? ["#flaps-down"] : ["#objective"]),
+      text: () => `Follow the line at the bottom: it calls each flap step and the gear as you get closer, ending at flaps ${aircraft.flaps[lastFlap()].label}.`,
+    },
+    {
+      id: "retry", hold: true, title: "BACK ON FINAL", target: () => ["#gs-indicator"], skip: () => !tutorial.retrying,
+      text: () => "You're 9 km out, set up to land, with the autopilot on. It will hand over at 100 ft, so get ready to flare.",
+    },
+    {
+      id: "glideslope", title: "ON THE GLIDESLOPE", target: () => ["#gs-indicator"], done: () => sim.agl * FT < 140,
+      text: () => "The diamond shows you against the glideslope, and the lights should be two white and two red. At 100 ft the autopilot hands over to you: get ready.",
+    },
+    {
+      id: "flare", title: "FLARE", target: () => ["#pitch-pad"], done: () => sim.onGround,
+      text: () => "Keep the path down to about 30 ft, then drag PITCH up gently and hold it to level off and settle onto the runway. A/THR closes the throttle.",
+    },
+    {
+      id: "stop", title: "STOP", target: () => ["#throttle"], done: () => false,
+      text: () => "On the ground! With the throttle at IDLE the autobrake stops you.",
+    },
+  ];
+  const coach = { box: $("#coach"), step: $("#coach-step"), title: $("#coach-title"), text: $("#coach-text"), next: $("#coach-next"), targets: [], key: "" };
+  function setCoachTargets(selectors) {
+    const key = selectors.join();
+    if (key === coach.key) return;
+    coach.key = key;
+    for (const element of coach.targets) element.classList.remove("coach-target");
+    coach.targets = selectors.map((selector) => $(selector)).filter(Boolean);
+    for (const element of coach.targets) element.classList.add("coach-target");
+  }
+  function hideCoach() {
+    coach.box.hidden = true;
+    game.classList.remove("has-coach");
+    setCoachTargets([]);
+  }
+  function advanceTutorial() {
+    do tutorial.step += 1;
+    while (TUTORIAL_STEPS[tutorial.step]?.skip?.());
+    const step = TUTORIAL_STEPS[tutorial.step];
+    if (!step) return hideCoach();
+    if (step.id === "glideslope") tutorial.checkpoint = true;
+    tutorial.hold = !!step.hold;
+    if (!step.keepRate) sim.rate = 1;
+    coach.step.textContent = `${tutorial.step + 1} / ${TUTORIAL_STEPS.length}`;
+    coach.title.textContent = step.title;
+    coach.text.textContent = step.text();
+    coach.next.hidden = !step.hold;
+    coach.box.hidden = false;
+    game.classList.add("has-coach");
+    setCoachTargets(step.target());
+    buzz(10);
+  }
+  function tutorialTick() {
+    const step = TUTORIAL_STEPS[tutorial.step];
+    if (!step || tutorial.hold || sim.state !== "flying") return;
+    if (step.done()) advanceTutorial();
+    else setCoachTargets(step.target());
+  }
+  function startTutorial() {
+    setLiveryScope("free");
+    challenge = null;
+    careerFlight = null;
+    tutorial = { step: -1, hold: false, checkpoint: false, retrying: false };
+    applyAircraft("a320");
+    applyRoute(TUTORIAL_ROUTE);
+    Object.assign(run, { weather: "clear", time: "day" });
+    cloudCache.clear();
+    $("#home-overlay").hidden = true;
+    startFlight("flight");
+  }
+  // Called by startFlight on every attempt: from the runway, or on final once the approach checkpoint is reached.
+  function beginTutorialRun() {
+    tutorial.retrying = tutorial.checkpoint;
+    tutorial.step = -1;
+    if (tutorial.retrying) {
+      setupFinal(FINAL_DISTANCE, vappKt() + 2);
+      Object.assign(sim.fg, { ap: true, athr: true });
+      tutorial.step = TUTORIAL_STEPS.findIndex((step) => step.id === "retry") - 1;
+    }
+    advanceTutorial();
+  }
+  function exitTutorial() {
+    useSettings();
+    replay.active = false;
+    game.classList.remove("is-replay", "is-started");
+    $("#replay-bar").hidden = true;
+    resetSim();
+    updateMenu();
+    wake.release();
+    showHome();
+  }
+  function showTutorialResult(card, stats) {
+    const crashed = sim.state === "crashed";
+    const report = !crashed && sim.touchdown ? landingReport() : null;
+    const arrived = !!report && sim.touchdown.runway === route.to;
+    if (arrived) {
+      tutorial.checkpoint = false;
+      try { localStorage.setItem("bbfs2d.tutorial", "1"); } catch { /* storage unavailable */ }
+    }
+    card.classList.toggle("is-crash", !arrived);
+    $("#result-kicker").textContent = arrived ? "FIRST FLIGHT COMPLETE" : "FIRST FLIGHT";
+    $("#result-title").textContent = crashed ? sim.crash.title : report ? report.grade : "FLIGHT ENDED";
+    $("#result-copy").textContent = arrived
+      ? "You flew a whole flight, runway to runway. Try other aircraft and routes in Free Flight, practise landings, or start an airline in Career."
+      : `${crashed ? `${sim.crash.copy} ` : ""}${tutorial.checkpoint ? "TRY AGAIN puts you back on final, 9 km out." : "TRY AGAIN starts from the runway."}`;
+    stats.replaceChildren(...(report ? report.stats : [["FLIGHT TIME", clock(sim.time)], ["TO GLASGOW", km(Math.max(0, TOUCHDOWN_X - sim.x))]]).map(statRow));
+  }
+  $("#home-tutorial").addEventListener("click", startTutorial);
+  $("#help-tutorial").addEventListener("click", () => {
+    $("#start-overlay").hidden = true;
+    startTutorial();
+  });
+  coach.next.addEventListener("click", advanceTutorial);
 
   // Load sheet: passengers and fuel set the weight, which sets the speeds and the performance.
   let loadMode = "flight";
@@ -4602,6 +4985,7 @@
     if (key === "p") toggleFcu();
     if ((key === "arrowup" || key === "arrowdown") && sim.fg.athr) disconnectAthr("A/THR OFF · LEVERS MOVED");
     if (key === "enter" && sim.state === "ready") startFlight("flight");
+    if (key === "enter" && tutorial?.hold) advanceTutorial();
   });
   window.addEventListener("keyup", (event) => {
     const key = event.key.toLowerCase();
@@ -4651,10 +5035,15 @@
     updateKeys(dt);
     if (replay.active) {
       stepReplay(dt);
-    } else if (!sim.paused && sim.state !== "ready") {
+    } else if (!sim.paused && sim.state !== "ready" && !tutorial?.hold) {
+      if (tutorial) tutorialTick();
       if (sim.rate > 1 && !rateAllowed()) {
         sim.rate = 1;
         flash("BACK TO 1× BELOW 2,500 FT");
+      }
+      if (sim.rate > 8 && sim.x > TOD_X - FAST_RATE_MARGIN) {
+        sim.rate = 8;
+        flash("T/D AHEAD · TIME BACK TO 8×", 4);
       }
       accumulator += dt * sim.rate;
       for (let steps = 0; accumulator >= PHYSICS_DT && steps < 1200; steps += 1) {
@@ -4705,7 +5094,8 @@
     getMode: () => mode,
     vrKt, vappKt, flapSpeed, startChallenge, CHALLENGES, dailyChallenge, liveryCode, readLiveryCode, useSettings, terrainAhead, themeAt, mountainsAt,
     setLoad: (load) => setLoad(load),
-    setupFinal, showHome, showResult, getCareer: () => career,
+    setupFinal, showHome, showResult, getCareer: () => career, flyOffer, careerOffers, renderCareer, showCareer, triggerFault, faultChance, serviceCost, serviceAircraft, canUse,
+    startTutorial, exitTutorial, tutorialTick, advanceTutorial, getTutorial: () => tutorial, TUTORIAL_STEPS, ROUTES, DAILY_ROUTES, getCareerFlight: () => careerFlight, adjustKnob, cycleRate,
     getChallenge: () => challenge,
     renderFrame: () => { updateCamera(0.016); render(); drawVD(); updateHud(); },
     get route() { return route; },
