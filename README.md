@@ -1,6 +1,6 @@
 # BBFS 2D
 
-A mobile-first, side-view flight sim. Fly an Airbus A320, an Airbus A340-300, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night. Paint your own livery, fly a new daily challenge every day, or run your own airline in Career mode.
+A mobile-first, side-view flight sim. Fly an Airbus A320, an Airbus A330-300, an Airbus A340-300, a Boeing 737-300, a Boeing 727-200 or a Boeing 747-400 between real airports: take off, climb, cruise, descend and land on a 3° glideslope, by hand or on autopilot, in four kinds of weather by day, at dusk or at night. New to it? **FIRST FLIGHT** on the home screen teaches every control. Paint your own livery, fly a new daily challenge every day, or run your own airline in Career mode.
 
 **Play it:** https://demonking2324.github.io/bbfs-2d/ (works on phones; add it to the home screen to install).
 
@@ -22,17 +22,17 @@ While a flight is running the game asks the phone to keep the screen awake.
 
 Pick the aircraft on the start screen. Each has its own handling, speeds, flaps and limits; the flight guidance, autopilot, landing and takeoff reports all follow the selected type.
 
-| | A320 | 737-300 | 727-200 | A340-300 | 747-400 |
-| --- | --- | --- | --- | --- | --- |
-| Reference weight | 62 t | 52 t | 76 t | 200 t | 280 t |
-| Engines | 2 | 2 | 3 (tail-mounted) | 4 | 4 |
-| Takeoff flaps / rotate (reference weight) | 1 / 145 kt | 5 / 140 kt | 15 / 145 kt | 2 / 150 kt | 10 / 158 kt |
-| Landing flaps / approach | FULL / 138 kt | 30 / 135 kt | 40 / 140 kt | FULL / 142 kt | 30 / 150 kt |
-| Flap detents | 0, 1, 2, 3, FULL | 0, 1, 5, 10, 15, 25, 30 | 0, 2, 5, 15, 25, 30, 40 | 0, 1, 2, 3, FULL | 0, 1, 5, 10, 20, 25, 30 |
-| Tail strike (from the art) | 12.2° | 11.3° (rotate to about 9°) | 10.7° (rotate to about 8°) | 9.3° (rotate to about 8°) | 12.1° |
+| | A320 | 737-300 | 727-200 | A330-300 | A340-300 | 747-400 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Reference weight | 62 t | 52 t | 76 t | 180 t | 200 t | 280 t |
+| Engines | 2 | 2 | 3 (tail-mounted) | 2 | 4 | 4 |
+| Takeoff flaps / rotate (reference weight) | 1 / 145 kt | 5 / 140 kt | 15 / 145 kt | 2 / 145 kt | 2 / 150 kt | 10 / 158 kt |
+| Landing flaps / approach | FULL / 138 kt | 30 / 135 kt | 40 / 140 kt | FULL / 137 kt | FULL / 142 kt | 30 / 150 kt |
+| Flap detents | 0, 1, 2, 3, FULL | 0, 1, 5, 10, 15, 25, 30 | 0, 2, 5, 15, 25, 30, 40 | 0, 1, 2, 3, FULL | 0, 1, 2, 3, FULL | 0, 1, 5, 10, 20, 25, 30 |
+| Tail strike (from the art) | 12.2° | 11.3° (rotate to about 9°) | 10.7° (rotate to about 8°) | 9.4° (rotate to about 8°) | 9.3° (rotate to about 8°) | 12.1° |
 | Takeoff roll, typical load (tested) | ~1,100 m | ~950 m (1,700 m full) | ~1,150 m (1,700 m full at Munich) | ~900 m (2,600 m full) | ~1,500 m |
 
-Rotate and approach speeds scale with the actual weight from the load sheet. Larger aircraft are drawn larger on screen, and parked aircraft at the gates are a mix of all five types. The long A340-300 has four modest engines: light it leaps off, but at full weight it needs a long runway and a gentle rotation, because its tail strikes at only 9.3°. The 737-300 is the smallest and lightest: a short-haul twin that gets off the ground quickly at typical weights. The 727 is thrust-limited and thirsty (roughly twice the A320's fuel burn), with a nose-low approach on flaps 40; with one engine out it climbs only a few hundred feet per minute.
+Rotate and approach speeds scale with the actual weight from the load sheet. Larger aircraft are drawn larger on screen, and parked aircraft at the gates are a mix of all six types. The A330-300 shares the A340's long airframe and low tail-strike angle but has two big engines: lots of thrust, and only half of it left after a failure. The long A340-300 has four modest engines: light it leaps off, but at full weight it needs a long runway and a gentle rotation, because its tail strikes at only 9.3°. The 737-300 is the smallest and lightest: a short-haul twin that gets off the ground quickly at typical weights. The 727 is thrust-limited and thirsty (roughly twice the A320's fuel burn), with a nose-low approach on flaps 40; with one engine out it climbs only a few hundred feet per minute.
 
 ## Load sheet: fuel and weight
 
@@ -42,11 +42,11 @@ Before each flight you choose passengers and fuel. The sheet shows takeoff and e
 - Fuel burns off in flight, per engine, more at high thrust and low altitude. FUEL is shown under N1. **LOW FUEL** appears below about half the reserve; if the tanks run dry, all engines flame out and you glide.
 - Landing above the maximum landing weight costs points.
 
-| | A320 | 737-300 | 727-200 | A340-300 | 747-400 |
-| --- | --- | --- | --- | --- | --- |
-| Empty / max takeoff / max landing | 42.6 / 78 / 66 t | 32.7 / 62.8 / 51.7 t | 46.7 / 95 / 72.6 t | 129.8 / 276.5 / 192 t | 178.8 / 396.9 / 285.8 t |
-| Max passengers / fuel | 180 / 18.7 t | 149 / 16.2 t | 189 / 24.6 t | 295 / 111 t | 416 / 170 t |
-| Reserve | 1.2 t | 1.1 t | 2 t | 4.5 t | 6 t |
+| | A320 | 737-300 | 727-200 | A330-300 | A340-300 | 747-400 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Empty / max takeoff / max landing | 42.6 / 78 / 66 t | 32.7 / 62.8 / 51.7 t | 46.7 / 95 / 72.6 t | 124 / 242 / 187 t | 129.8 / 276.5 / 192 t | 178.8 / 396.9 / 285.8 t |
+| Max passengers / fuel | 180 / 18.7 t | 149 / 16.2 t | 189 / 24.6 t | 277 / 109 t | 295 / 111 t | 416 / 170 t |
+| Reserve | 1.2 t | 1.1 t | 2 t | 4 t | 4.5 t | 6 t |
 
 ## Challenges
 
@@ -68,20 +68,27 @@ Thirteen scenarios with 1–3 stars each, saved in the browser. Open **CHALLENGE
 | Engine out over the sea | 737 · LEBL 07L at night | Full 737; an engine fails at 100 ft over open water |
 | Storm over Mallorca | 737 · LEPA 24L at dusk | Thunderstorm gusts on final for Palma |
 
+## First flight
+
+**FIRST FLIGHT** on the home screen (also under **HOW TO FLY** in Free Flight) is a guided A320 flight from Edinburgh to Glasgow in clear weather. Coach cards explain each control and highlight it on screen, and move on when you've done it: flaps, thrust, rotation, gear, the autopilot, the descent, the approach and the flare. Crash once you're set up to land and **TRY AGAIN** puts you back on final, 9 km out, rather than on the runway.
+
 ## Free flight and career
 
 The game opens on a choice of two modes. **FREE FLIGHT** is everything below: any aircraft and route, practice, challenges, the daily and your liveries. **‹ HOME** goes back to the choice.
 
 **CAREER** runs an airline:
 
-- **Found it:** name your airline, pick its home hub (any of the 12 airports; Heathrow has the most routes), then paint its first aircraft, a 737-300. You start with $25,000 and a reputation of 50.
-- **Hubs:** offers only come from routes that start or end at one of your hubs. Open more hubs from the hub list ($40k at Gibraltar up to $150k at Heathrow) to reach new parts of the network. Flights between two of your hubs draw 30% more passengers.
-- **Fly offers:** the hub lists four flight offers: route, passengers waiting, weather and time of day, with the estimated profit for the aircraft you've picked. Each one is a full flight, runway to runway. Heavy jets can't use short runways (the A340 and 747 need 2,500 m or more, which rules out places like Gibraltar and Innsbruck).
+- **Found it:** name your airline, pick its home hub (any of the 12 airports a 737 can fly from; Heathrow has the most routes), then paint its first aircraft, a 737-300. You start with $25,000 and a reputation of 50.
+- **Hubs:** offers only come from routes that start or end at one of your hubs. Open more hubs from the hub list ($40k at Gibraltar up to $180k at New York) to reach new parts of the network. Flights between two of your hubs draw 30% more passengers.
+- **Fly offers:** the hub lists four flight offers: route, passengers waiting, weather and time of day, with the estimated profit for the aircraft you've picked. Each one is a full flight, runway to runway. Heavy jets can't use short runways (the A330 needs 2,400 m and the A340 and 747 about 2,500 m, which rules out places like Gibraltar and Innsbruck), and only the A330, A340 and 747 have the range for New York.
 - **Ticket prices:** **ECONOMY** (0.75× price, 1.3× passengers), **STANDARD**, or **PREMIUM** (1.45× price, 0.75× passengers, and a landing under 75 costs an extra 5 reputation). The choice applies to the next flight and the offer estimates update with it.
 - **Loans:** the **BANK** lends $50,000 at a time for a flat 15% fee ($57,500 to repay), up to $100,000 plus 60% of your fleet's value. A tenth of the debt comes off after every flight, crash or abandoned flight included; **PAY OFF** clears it early when you have the cash.
 - **Get paid:** tickets are passengers × a fare that grows with distance, scaled by your fare level and your landing score (0.7× for a 0 up to 1.2× for a 100). Fuel and upkeep come off. A crash costs repairs (a quarter of the aircraft's price) and 15 reputation; landing somewhere else pays nothing; abandoning a flight still costs the upkeep. There are no restarts.
 - **Reputation** (0–100) rises with good landings and falls with bad ones, and decides how many passengers turn up.
-- **Grow the fleet:** buy the 727-200 ($70k), A320 ($90k), A340-300 ($220k) or 747-400 ($320k), and paint each one when it arrives. Pick which aircraft to fly in the fleet list.
+- **Grow the fleet:** buy the 727-200 ($70k), A320 ($90k), A330-300 ($180k), A340-300 ($220k) or 747-400 ($320k), and paint each one when it arrives. Pick which aircraft to fly in the fleet list.
+
+- **Wear and service:** each aircraft in your fleet has a wear figure. Every flight adds some (longer flights a little more); hard landings, tail strikes and overspeeds add more, and a crash adds a lot. **SERVICE** on the fleet card clears it, costing up to 40% of the aircraft's price from 100% wear.
+- **Faults:** above 25% wear a flight can develop a fault, and the fleet card shows the risk (about 15% at 50% wear, 44% at 75%, 80% at 100%). It might be an engine failure, flaps that stop short of the landing setting (so you land faster), or a hydraulic fault that makes the gear take 30 seconds. A fault costs 8% of the aircraft's price to repair; land at the destination anyway for +4 reputation.
 
 Career liveries are separate from free-flight ones. Progress is saved in the browser; **CLOSE AIRLINE** at the bottom of the hub starts over.
 
@@ -117,6 +124,7 @@ Pick the route on the start screen. Runway lengths and airport elevations are re
 | Munich → Innsbruck | EDDM 26L → LOWI 26 | 125 km | FL120 | ~21 min |
 | Barcelona → Palma | LEBL 07L → LEPA 24L | 203 km | FL150 | ~30 min |
 | Málaga → Gibraltar | LEMG 13 → LXGB 27 | 100 km | 7,000 ft | ~18 min |
+| Heathrow → New York | EGLL 27R → KJFK 31L | 5,540 km | FL350 | ~7 h (~23 min at 32×) |
 
 Every route also flies the other way (Bristol → Heathrow, Palma → Barcelona and so on): the terrain is mirrored and each airport uses the opposite end of its runway, so Heathrow 27R becomes 09L.
 
@@ -126,10 +134,11 @@ Each route has a real terrain profile you can fly into:
 - **Barcelona → Palma** heads straight out over the Mediterranean and crosses Mallorca's hills before the approach to Palma.
 - **Málaga → Gibraltar** follows the Costa del Sol over the sea to Gibraltar's short runway across the isthmus. Land short or run off the end and you're in the water.
 - **Schiphol → Heathrow** crosses the North Sea (ships, open water; coming down there is a ditching) and finishes with the approach over London.
+- **Heathrow → New York** is the long haul: over Wales and Ireland, then the Atlantic to Newfoundland and Nova Scotia, down to Long Island. Only the A330, A340 and 747 carry enough fuel.
 - **City skylines** at London, Manchester, Glasgow and Edinburgh, lit up at night; hills on the UK routes.
 - A **TERRAIN · PULL UP** warning (with voice) sounds when the flight path is closing on rising ground within 20 seconds.
 
-Time speed-up (2×, 4×, 8×) is available above 2,500 ft.
+Time speed-up (2×, 4×, 8×) is available above 2,500 ft. On the long-haul route it also goes to 16× and 32×, dropping back to 8× about 60 km before top of descent.
 
 ## Modes
 
